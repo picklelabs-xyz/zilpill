@@ -1,0 +1,9 @@
+ZIL_WALLET_SEC_PUBLIC_ADD_BECH32 = "zil1..."
+ZIL_WALLET_SEC_KEYSTORE = 'keystore_zil_sec.json'
+
+
+ZIL_WALLET_PRIM_KEYSTORE = 'keystore_zil_prim.json'
+ZIL_WALLET_PRIM_PUBLIC_ADD_BECH32 = "zil1..."
+
+
+ZIL_WALLET_THI_PUBLIC_ADD_BECH32 = 'zil1...'
