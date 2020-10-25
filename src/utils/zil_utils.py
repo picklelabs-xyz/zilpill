@@ -1,3 +1,4 @@
+import os
 import getpass
 import src.CONSTANTS as CNSTS
 from src.pyzil_mod.account import Account as ModAccount
@@ -27,6 +28,10 @@ def get_key(keystore):
     mod_account = ModAccount.from_keystore(password, keystore)
     return mod_account.private_key
 
+
+def get_key_env(keystore, password):
+    mod_account = ModAccount.from_keystore(password, keystore)
+    return mod_account.private_key
 
 def get_current_block():
     return api.GetCurrentMiniEpoch()
