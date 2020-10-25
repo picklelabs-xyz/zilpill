@@ -9,7 +9,24 @@ from pyzil.contract import Contract
 chain.set_active_chain(chain.MainNet)
 
 
-def withdraw_claim_rewards(contract, ssn_add_bech32):
+def extract_reward_amount(resp):
+    if 'receipt' in resp:
+        receipt = resp['receipt']
+        if 'event_logs' in receipt:
+            event_logs = receipt['event_logs']
+            for event_log in event_logs:
+                if '_eventname' in event_log:
+                    if 'WithdrawalStakeRewards' == event_log['_eventname']:
+                        if 'params' in event_log:
+                            for param in event_log['params']:
+                                if param['vname'] == 'rewards':
+                                    value = param['value']
+                                    zil_rewards = int(value) / CNSTS.ZIL_DEC_DIVISOR
+                                    return zil_rewards
+    return 0
+
+
+def withdraw_stake_rewards(contract, ssn_add_bech32):
     resp = contract.call(method="WithdrawStakeRewards",
                          params=[Contract.value_dict(
                              "ssnaddr",
@@ -17,12 +34,16 @@ def withdraw_claim_rewards(contract, ssn_add_bech32):
                              zutils.to_base16_add(ssn_add_bech32))]
                          )
     pprint(resp)
-    pprint(contract.last_receipt)
+    # pprint(contract.last_receipt)
+    return extract_reward_amount(resp)
 
 
-def withdraw_all_claim_rewards(contract, ssn_adds_bech32):
+def withdraw_all_stake_rewards(contract, ssn_adds_bech32):
+    total_reward = 0
     for ssn_add_bech32 in ssn_adds_bech32:
-        withdraw_claim_rewards(contract, ssn_add_bech32)
+        reward = withdraw_stake_rewards(contract, ssn_add_bech32)
+        total_reward = total_reward + reward
+    return total_reward
 
 
 def stake_zil(contract, ssn_add_bech32, z_amount):
@@ -38,28 +59,15 @@ def stake_zil(contract, ssn_add_bech32, z_amount):
 
 # Put your keystore path here or in CONF file
 account = Account(private_key=zutils.get_key(CONF.ZIL_WALLET_PRIM_KEYSTORE))
-balance = account.get_balance()
-print("balance", balance)
 
 zil_stake_contract = zutils.load_contract(CNSTS.SEED_NODE_STAKE_PROXY_BECH32)
-print(zil_stake_contract.status)
-pprint(zil_stake_contract.state)
-
 zil_stake_contract.account = account
 
 # Put your SSNs here to withdraw the rewards
 ssn_adds = [CNSTS.SSN1_VIEW_BLOCK_BECH32, CNSTS.SSN2_ZILLACRACY_BECH32, CNSTS.SSN3_MOONLET_BECH32]
 
-# Uncomment the double commented withdraw function below before execution
-## withdraw_all_claim_rewards(zil_stake_contract, ssn_adds)
-
-# Currently, the amount is being put manually for re-staking here. Ideally,
-# it should capture the amount of claimed rewards in the above withdraw function
-# and then use that to stake, with the specified SSN
-amount = 1000
-
-
-# Uncomment the double commented stake function below before execution
-# and specify the required SSN
-## stake_zil(zil_stake_contract, CNSTS.SSN4_EZIL_BECH32, amount)
+rewards = withdraw_all_stake_rewards(zil_stake_contract, ssn_adds)
+print("Rewards: ", rewards)
+if rewards > 10:
+    stake_zil(zil_stake_contract, CNSTS.SSN4_EZIL_BECH32, rewards)
 
