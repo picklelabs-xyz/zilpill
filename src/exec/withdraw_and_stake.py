@@ -18,13 +18,16 @@ account = Account(private_key=zutils.get_key(os.getenv(CONF.PRIM_WALLET['KEYSTOR
 zillion_contract = zillion.load_my_zillion(account)
 
 # Put your SSNs here to withdraw the rewards
-ssn_adds = [CNSTS.SSN1_VIEW_BLOCK_BECH32, CNSTS.SSN2_ZILLACRACY_BECH32, CNSTS.SSN3_MOONLET_BECH32]
+ssn_adds = [CNSTS.SSN.SSN1_VIEW_BLOCK_BECH32,
+            CNSTS.SSN.SSN2_ZILLACRACY_BECH32,
+            CNSTS.SSN.SSN3_MOONLET_BECH32,
+            CNSTS.SSN.SSN4_EZIL_BECH32]
 
 rewards = zillion.withdraw_all_stake_rewards(zillion_contract, ssn_adds)
 print("Rewards: ", rewards)
 if rewards > 10:
     # Put your SSN here to stake the rewards
-    zillion.stake_zil(zillion_contract, CNSTS.SSN4_EZIL_BECH32, rewards)
+    zillion.stake_zil(zillion_contract, CNSTS.SSN.SSN4_EZIL_BECH32, rewards)
 
 
 

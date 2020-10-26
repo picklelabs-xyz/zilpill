@@ -3,6 +3,7 @@ import src.utils.zil_utils as zutils
 from pprint import pprint
 from pyzil.zilliqa import chain
 from pyzil.contract import Contract
+from pyzil.zilliqa.units import Zil, Qa
 
 chain.set_active_chain(chain.MainNet)
 
@@ -19,8 +20,8 @@ def extract_reward_amount(resp):
                             for param in event_log['params']:
                                 if param['vname'] == 'rewards':
                                     value = param['value']
-                                    zil_rewards = int(value) / CNSTS.ZIL_DEC_DIVISOR
-                                    return zil_rewards
+                                    zil_rewards = Qa(value).toZil()
+                                    return float(zil_rewards)
     return 0
 
 
@@ -56,7 +57,9 @@ def stake_zil(contract, ssn_add_bech32, z_amount):
 
 
 def load_my_zillion(account):
-    contract = zutils.load_contract(CNSTS.SEED_NODE_STAKE_PROXY_BECH32)
+    contract = zutils.load_contract(CNSTS.CONTRACT.ZILLION_CONTRACT_PROXY_ADD)
     contract.account = account
     return contract
+
+
 

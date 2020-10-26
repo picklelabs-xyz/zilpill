@@ -1,5 +1,6 @@
 import getpass
 import src.CONSTANTS as CNSTS
+import math
 from src.pyzil_mod.account import Account as ModAccount
 from pyzil.crypto import zilkey
 from pyzil.contract import Contract
@@ -30,8 +31,22 @@ def get_key(keystore, password=None):
     return mod_account.private_key
 
 
-def get_token_balance(token_bech32, token_dec_divisor, address_base16):
+def get_token_dec_divisor(token_contract):
+    for param in token_contract.init:
+        if param['vname'] == 'decimals':
+            return math.pow(10, int(param['value']))
+
+
+def get_token_balance(token_bech32, address_base16):
     token_contract = load_contract(token_bech32)
+    token_dec_divisor = get_token_dec_divisor(token_contract)
+    if address_base16 in token_contract.state['balances']:
+        return int(token_contract.state['balances'][address_base16]) / token_dec_divisor
+    return 0
+
+
+def get_token_balances(tokens_bech32, token_dec_divisor, address_base16):
+    token_contract = load_contract(tokens_bech32)
     if address_base16 in token_contract.state['balances']:
         return int(token_contract.state['balances'][address_base16]) / token_dec_divisor
     return 0
@@ -44,3 +59,4 @@ def get_current_block():
 def print_contract_details(contract):
     print(contract.status)
     pprint(contract.state)
+
