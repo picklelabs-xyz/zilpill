@@ -11,10 +11,10 @@ Requirements:
 * ``pip-sync requirements.txt`` Install all the dependencies from `requirement
 .txt` 
 
-These variables need to be set in the .env file
+These variables need to be set in the .env file.
 ```
-ZIL_WALLET_PRIM_KEYSTORE: <file_path>
-ZIL_WALLET_PRIM_PASSWORD: <passwrod>
+export "ZIL_WALLET_PRIM_KEYSTORE: <file_path>" > .env
+export "ZIL_WALLET_PRIM_PASSWORD: <passwrod>" > .env
 ```
 
 #### Extra Remarks:
