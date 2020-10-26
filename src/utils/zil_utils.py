@@ -1,9 +1,9 @@
-import os
 import getpass
 import src.CONSTANTS as CNSTS
 from src.pyzil_mod.account import Account as ModAccount
 from pyzil.crypto import zilkey
 from pyzil.contract import Contract
+from pprint import pprint
 from pyzil.zilliqa.api import ZilliqaAPI, APIError
 
 
@@ -23,15 +23,24 @@ def load_contract(contract_add):
     return contract
 
 
-def get_key(keystore):
-    password = getpass.getpass(prompt='Password: ')
+def get_key(keystore, password=None):
+    if password is None:
+        password = getpass.getpass(prompt='Password: ')
     mod_account = ModAccount.from_keystore(password, keystore)
     return mod_account.private_key
 
 
-def get_key_env(keystore, password):
-    mod_account = ModAccount.from_keystore(password, keystore)
-    return mod_account.private_key
+def get_token_balance(token_bech32, token_dec_divisor, address_base16):
+    token_contract = load_contract(token_bech32)
+    if address_base16 in token_contract.state['balances']:
+        return int(token_contract.state['balances'][address_base16]) / token_dec_divisor
+    return 0
+
 
 def get_current_block():
     return api.GetCurrentMiniEpoch()
+
+
+def print_contract_details(contract):
+    print(contract.status)
+    pprint(contract.state)
