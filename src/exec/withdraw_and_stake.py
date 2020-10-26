@@ -3,10 +3,12 @@ import src.utils.zil_utils as zutils
 import src.CONSTANTS as CNSTS
 from src.stk import zillion
 from pyzil.account import Account
+from dotenv import load_dotenv
+load_dotenv()
 
 # Put your keystore file path here or in CONF file
-account = Account(private_key=zutils.get_key_env(os.getenv(
-    "ZIL_WALLET_PRIM_KEYSTORE"), os.getenv("ZIL_WALLET_PRIM_PASSWORD")))
+account = Account(private_key=zutils.get_key_env(os.getenv("ZIL_WALLET_PRIM_KEYSTORE"),
+                                                 os.getenv("ZIL_WALLET_PRIM_PASSWORD")))
 
 # Load zillion staking contract with your own wallet
 zillion_contract = zillion.load_my_zillion(account)

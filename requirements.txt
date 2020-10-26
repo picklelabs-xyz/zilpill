@@ -112,6 +112,10 @@ pyethash==0.1.27 \
 pyrsistent==0.17.3 \
     --hash=sha256:2e636185d9eb976a18a8a8e96efce62f2905fea90041958d8cc2a189756ebf3e \
     # via jsonschema
+python-dotenv==0.14.0 \
+    --hash=sha256:8c10c99a1b25d9a68058a1ad6f90381a62ba68230ca93966882a4dbc3bc9c33d \
+    --hash=sha256:c10863aee750ad720f4f43436565e4c1698798d763b63234fb5021b6c616e423 \
+    # via -r requirements.in
 pyzil==1.5.22 \
     --hash=sha256:5825fe46322f51711d5499cccdd5778121040d4ea5162829893a9944e3f091e5 \
     --hash=sha256:ef83dc61403f8c7c4f59179b081c478d1121ebabe43f96c3f9632e79845ad57e \
