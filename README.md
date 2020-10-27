@@ -14,7 +14,7 @@ Requirements:
 These variables need to be set in the .env file.
 ```
 export "ZIL_WALLET_PRIM_KEYSTORE: <file_path>" > .env
-export "ZIL_WALLET_PRIM_PASSWORD: <passwrod>" > .env
+export "ZIL_WALLET_PASSWORD: <passwrod>" > .env
 ```
 
 #### Extra Remarks:
