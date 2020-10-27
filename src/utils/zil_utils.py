@@ -19,8 +19,11 @@ def to_base16_add(bech32_add):
     return address0x(zilkey.from_bech32_address(bech32_add))
 
 
-def load_contract(contract_add):
+def load_contract(contract_add, account=None):
     contract = Contract.load_from_address(contract_add)
+    if account is None:
+        return contract
+    contract.account = account
     return contract
 
 
@@ -56,7 +59,17 @@ def get_current_block():
     return api.GetCurrentMiniEpoch()
 
 
-def print_contract_details(contract):
-    print(contract.status)
-    pprint(contract.state)
+def print_contract_details(contract, text_file=None):
+    status = contract.status
+    state = contract.state
+    print(status)
+    print(state)
+    if text_file is not None:
+        text_file = open(text_file, "w")
+        text_file.write(str(status) + "\n" + str(state))
+        text_file.close()
+
+
+
+
 
