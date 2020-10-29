@@ -26,6 +26,7 @@ def extract_reward_amount(resp):
 
 def withdraw_stake_rewards(zillion_contract, zillion_proxy_contract, ssn_add_bech32, deleg_wallet_bech32):
     details_from = 'resp'  # just to track debug info
+    rewards = 0
     state = zillion_contract.state
     last_deleg_ssn_withdraw_cycle = state['last_withdraw_cycle_deleg'][zutils.to_base16_add(deleg_wallet_bech32)]
     last_deleg_ssn_withdraw_cycle = last_deleg_ssn_withdraw_cycle[zutils.to_base16_add(ssn_add_bech32)]
@@ -48,7 +49,8 @@ def withdraw_stake_rewards(zillion_contract, zillion_proxy_contract, ssn_add_bec
                 tx_info = zutils.api.GetTransaction(zillion_proxy_contract.account.last_txn_info['TranID'])
                 resp = {'receipt': tx_info['receipt']}
                 details_from = 'transaction'
-    return extract_reward_amount(resp), details_from
+        rewards = extract_reward_amount(resp)
+    return rewards, details_from
 
 
 def withdraw_all_stake_rewards(zillion_contract, zillion_proxy_contract, ssn_adds_bech32, deleg_wallet_bech32):

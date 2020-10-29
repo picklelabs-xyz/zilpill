@@ -4,7 +4,6 @@ import math
 from src.pyzil_mod.account import Account as ModAccount
 from pyzil.crypto import zilkey
 from pyzil.contract import Contract
-from pprint import pprint
 from pyzil.zilliqa.api import ZilliqaAPI, APIError
 
 
@@ -28,6 +27,8 @@ def load_contract(contract_add, account=None):
 
 
 def get_key(keystore, password=None):
+    if keystore is None:
+        return None
     if password is None:
         password = getpass.getpass(prompt='Password: ')
     mod_account = ModAccount.from_keystore(password, keystore)
