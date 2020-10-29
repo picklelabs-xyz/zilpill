@@ -3,11 +3,13 @@ import src.CONF as CONF
 import os
 import src.CONSTANTS as CNSTS
 from src.stk import zillion
+from os.path import join, dirname
 from pyzil.account import Account
 from dotenv import load_dotenv
 
 load_dotenv()
-
+personal_env = os.getenv(CONF.PERSONAL_ENV_FILE)
+load_dotenv(personal_env)
 
 # Put your keystore file path here or in CONF file
 account = Account(private_key=zutils.get_key(os.getenv(CONF.PRIM_WALLET['KEYSTORE']),

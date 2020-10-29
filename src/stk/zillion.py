@@ -57,7 +57,7 @@ def withdraw_all_stake_rewards(zillion_contract, zillion_proxy_contract, ssn_add
     total_reward = 0
     for ssn_add_bech32 in ssn_adds_bech32:
         reward, info = withdraw_stake_rewards(zillion_contract, zillion_proxy_contract,
-                                        ssn_add_bech32, deleg_wallet_bech32)
+                                              ssn_add_bech32, deleg_wallet_bech32)
         print(ssn_add_bech32, reward, info)
         total_reward = total_reward + reward
     return total_reward
