@@ -34,3 +34,4 @@ NUM_BLOCKS_IN_1_MIN = round(52000/(31*24*60))
 SGD = 0.74  # $
 
 TEST_ZIL_AMOUNT = 1
+

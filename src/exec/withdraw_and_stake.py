@@ -3,7 +3,8 @@ import src.CONF as CONF
 import os
 import src.CONSTANTS as CNSTS
 from src.stk import zillion
-from os.path import join, dirname
+from src.utils import email_info
+from datetime import datetime
 from pyzil.account import Account
 from dotenv import load_dotenv
 
@@ -29,11 +30,24 @@ ssn_adds = [CNSTS.SSN.SSN1_VIEW_BLOCK_BECH32,
             CNSTS.SSN.SSN3_MOONLET_BECH32,
             CNSTS.SSN.SSN4_EZIL_BECH32]
 
+now = datetime.now()
+dt = now.strftime("%d/%m/%Y %H:%M:%S")
 
-rewards = zillion.withdraw_all_stake_rewards(zillion_contract, zillion_proxy_contract,
+rewards, info = zillion.withdraw_all_stake_rewards(zillion_contract, zillion_proxy_contract,
                                              ssn_adds, os.getenv(CONF.PRIM_WALLET['BECH32']))
 print("Rewards: ", rewards)
-if rewards > 50:
-    # Put your SSN here to stake the rewards
-    zillion.stake_zil(zillion_proxy_contract, CNSTS.SSN.SSN4_EZIL_BECH32, rewards)
+e_subject = "withdraw_and_stake: execution at " + dt
 
+e_from_name = "Machine"
+e_from_mail = os.getenv(CONF.EMAIL_1)
+e_from_pwd = os.getenv(CONF.EMAIL_1_PASSWORD)
+e_to_mails = [os.getenv(CONF.EMAIL_1)]
+
+e_msg = 'Rewards withdrawn: ' + str(rewards) + '\n\n'
+if rewards > 25:
+    # Put your SSN here to stake the rewards
+    success = zillion.stake_zil(zillion_proxy_contract, CNSTS.SSN.SSN4_EZIL_BECH32, rewards)
+    e_msg = e_msg + 'Staking: ' + str(success) + '\n\n'
+
+e_msg = e_msg + "\n".join(info)
+email_info.mail_it(e_subject, e_msg, e_from_name, e_from_pwd, e_from_mail, e_to_mails)
