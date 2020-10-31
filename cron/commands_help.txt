@@ -1,0 +1,3 @@
+sudo /sbin/service cron start
+sudo /sbin/service cron stop
+crontab -e
