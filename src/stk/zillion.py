@@ -70,7 +70,7 @@ def withdraw_all_stake_rewards(zillion_contract, zillion_proxy_contract, ssn_add
     for ssn_add_bech32 in ssn_adds_bech32:
         reward, info = withdraw_stake_rewards(zillion_contract, zillion_proxy_contract,
                                               ssn_add_bech32, deleg_wallet_bech32)
-        print(ssn_add_bech32, reward, info)
+        # print(ssn_add_bech32, reward, info)
         all_info.append(ssn_add_bech32 + " " + str(reward) +  " " + info)
         total_reward = total_reward + reward
     return total_reward, all_info
@@ -87,3 +87,30 @@ def stake_zil(zillion_proxy_contract, ssn_add_bech32, z_amount):
     success = extract_receipt_response(resp)
     print(success)
     return success
+
+
+def get_wallet_deposits(zillion_contract, wallet_bech32, ):
+    buff_deposit_delegate = zillion_contract.state['buff_deposit_deleg']
+    deleg_stake_per_cycle = zillion_contract.state['deleg_stake_per_cycle']
+    # ssn_deleg_amt = zillion_contract.state['ssn_deleg_amt']
+    # withdrawal_pending = zillion_contract.state['withdrawal_pending']
+
+    wallet_buff = buff_deposit_delegate[zutils.to_base16_add(wallet_bech32)]
+    wallet_deleg_stake = deleg_stake_per_cycle[zutils.to_base16_add(wallet_bech32)]
+    last_reward_cycle = zillion_contract.state['lastrewardcycle']
+
+    wallet_buff_amnt = Zil(0)
+    for ssn in wallet_buff:
+        if last_reward_cycle in wallet_buff[ssn]:
+            wallet_buff_amnt = wallet_buff_amnt + Qa(wallet_buff[ssn][last_reward_cycle]).toZil()
+        second_last_reward_cycle = str(int(last_reward_cycle) - 1)
+        if second_last_reward_cycle in wallet_buff[ssn]:
+            wallet_buff_amnt = wallet_buff_amnt + Qa(wallet_buff[ssn][second_last_reward_cycle]).toZil()
+
+    wallet_deleg_stake_amnt = Zil(0)
+    for ssn in wallet_deleg_stake:
+        if last_reward_cycle in wallet_deleg_stake[ssn]:
+            wallet_deleg_stake_amnt = wallet_deleg_stake_amnt + Qa(wallet_deleg_stake[ssn][last_reward_cycle]).toZil()
+
+    wallet_total_deposits = wallet_buff_amnt + wallet_deleg_stake_amnt
+    return wallet_total_deposits

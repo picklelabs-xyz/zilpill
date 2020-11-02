@@ -24,6 +24,8 @@ zillion_proxy_contract = zutils.load_contract(CNSTS.CONTRACT.ZILLION_CONTRACT_PR
 zillion_contract = zutils.load_contract(CNSTS.CONTRACT.ZILLION_CONTRACT_ADD,
                                         account)
 
+wallet_total_deposits = zillion.get_wallet_deposits(zillion_contract, os.getenv(CONF.PRIM_WALLET['BECH32']))
+
 # Put your SSNs here to withdraw the rewards
 ssn_adds = [CNSTS.SSN.SSN1_VIEW_BLOCK_BECH32,
             CNSTS.SSN.SSN2_ZILLACRACY_BECH32,
@@ -35,23 +37,34 @@ dt = now.strftime("%d/%m/%Y %H:%M:%S")
 
 rewards, info = zillion.withdraw_all_stake_rewards(zillion_contract, zillion_proxy_contract,
                                                    ssn_adds, os.getenv(CONF.PRIM_WALLET['BECH32']))
-print("Rewards: ", rewards)
-e_subject = "withdraw_and_stake: execution at " + dt
 
+e_subject = "withdraw_and_stake: execution at " + dt
 e_from_name = "Machine"
 e_from_mail = os.getenv(CONF.EMAIL_1)
 e_from_pwd = os.getenv(CONF.EMAIL_1_PASSWORD)
 e_to_mails = [os.getenv(CONF.EMAIL_1)]
 
-e_msg = 'Rewards withdrawn: ' + str(rewards) + '\n\n'
+# printing for cron logs
+print(e_subject)
+print("Rewards: ", rewards)
+
+e_msg = ['Rewards withdrawn: ' + str(rewards)]
 if rewards > 25:
     # Put your SSN here to stake the rewards
     success = zillion.stake_zil(zillion_proxy_contract, CNSTS.SSN.SSN4_EZIL_BECH32, rewards)
-    e_msg = e_msg + 'Staking: ' + str(success) + '\n\n'
+    e_msg.append('Staking: ' + str(success))
+    e_msg.append('\n\n')
 
+    circulating_supply = zutils.get_circulating_supply()
+    wallet_deposit_as_per_circ_supply = (float(wallet_total_deposits)/circulating_supply) * 100
+    e_msg.append("\n".join(info))
+    e_msg.append('\n')
+    e_msg.append("Wallet staked amount is " \
+            + str(round(wallet_deposit_as_per_circ_supply, 7)) \
+            + ' % of circulating supply i.e. ' \
+            + str(round(wallet_total_deposits, 2)) + " / " + str(round(float(circulating_supply), 2)))
+    print("\n".join(e_msg))
+    e_msg.append('Zillion: https://stake.zilliqa.com/address/' + os.getenv(CONF.PRIM_WALLET['BECH32']))
+    e_msg.append('Viewblock: https://viewblock.io/zilliqa/address/' + os.getenv(CONF.PRIM_WALLET['BECH32']))
 
-e_msg = e_msg + "\n".join(info)
-e_msg = e_msg + "\n"
-e_msg = e_msg + '\n' + 'Zillion: https://stake.zilliqa.com/address/' + os.getenv(CONF.PRIM_WALLET['BECH32'])
-e_msg = e_msg + '\n' + 'Viewblock: https://viewblock.io/zilliqa/address/' + os.getenv(CONF.PRIM_WALLET['BECH32'])
-email_info.mail_it(e_subject, e_msg, e_from_name, e_from_pwd, e_from_mail, e_to_mails)
+    email_info.mail_it(e_subject, "\n".join(e_msg), e_from_name, e_from_pwd, e_from_mail, e_to_mails)

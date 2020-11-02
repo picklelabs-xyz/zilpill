@@ -1,6 +1,7 @@
 import getpass
 import src.CONSTANTS as CNSTS
 import math
+import requests
 from src.pyzil_mod.account import Account as ModAccount
 from pyzil.crypto import zilkey
 from pyzil.contract import Contract
@@ -8,6 +9,7 @@ from pyzil.zilliqa.api import ZilliqaAPI, APIError
 
 
 api = ZilliqaAPI(CNSTS.ZIL_API_URL)
+link = CNSTS.ZIL_SUPPLY_URL
 
 
 def address0x(add):
@@ -69,6 +71,12 @@ def print_contract_details(contract, text_file=None):
         text_file = open(text_file, "w")
         text_file.write(str(status) + "\n" + str(state))
         text_file.close()
+
+
+def get_circulating_supply():
+    return float(requests.get(link).text)
+
+
 
 
 
