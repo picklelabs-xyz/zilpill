@@ -24,7 +24,6 @@ zillion_proxy_contract = zutils.load_contract(CNSTS.CONTRACT.ZILLION_CONTRACT_PR
 zillion_contract = zutils.load_contract(CNSTS.CONTRACT.ZILLION_CONTRACT_ADD,
                                         account)
 
-wallet_total_deposits = zillion.get_wallet_deposits(zillion_contract, os.getenv(CONF.PRIM_WALLET['BECH32']))
 
 # Put your SSNs here to withdraw the rewards
 ssn_adds = [CNSTS.SSN.SSN1_VIEW_BLOCK_BECH32,
@@ -54,15 +53,8 @@ if rewards > 25:
     success = zillion.stake_zil(zillion_proxy_contract, CNSTS.SSN.SSN4_EZIL_BECH32, rewards)
     e_msg.append('Staking: ' + str(success))
     e_msg.append('\n\n')
-
-    circulating_supply = zutils.get_circulating_supply()
-    wallet_deposit_as_per_circ_supply = (float(wallet_total_deposits)/circulating_supply) * 100
     e_msg.append("\n".join(info))
     e_msg.append('\n')
-    e_msg.append("Wallet staked amount is " \
-            + str(round(wallet_deposit_as_per_circ_supply, 7)) \
-            + ' % of circulating supply i.e. ' \
-            + str(round(wallet_total_deposits, 2)) + " / " + str(round(float(circulating_supply), 2)))
     print("\n".join(e_msg))
     e_msg.append('Zillion: https://stake.zilliqa.com/address/' + os.getenv(CONF.PRIM_WALLET['BECH32']))
     e_msg.append('Viewblock: https://viewblock.io/zilliqa/address/' + os.getenv(CONF.PRIM_WALLET['BECH32']))
