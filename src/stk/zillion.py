@@ -89,7 +89,7 @@ def stake_zil(zillion_proxy_contract, ssn_add_bech32, z_amount):
     return success
 
 
-def get_wallet_deposits(zillion_contract, wallet_bech32, ):
+def get_wallet_deposits(zillion_contract, wallet_bech32):
     buff_deposit_delegate = zillion_contract.state['buff_deposit_deleg']
     deleg_stake_per_cycle = zillion_contract.state['deleg_stake_per_cycle']
     # ssn_deleg_amt = zillion_contract.state['ssn_deleg_amt']
@@ -114,3 +114,23 @@ def get_wallet_deposits(zillion_contract, wallet_bech32, ):
 
     wallet_total_deposits = wallet_buff_amnt + wallet_deleg_stake_amnt
     return wallet_total_deposits
+
+
+def check_if_rewards_claimed(zillion_contract, ssn_add_bech32, deleg_wallet_bech32):
+    state = zillion_contract.state
+    last_deleg_ssn_withdraw_cycle = state['last_withdraw_cycle_deleg'][zutils.to_base16_add(deleg_wallet_bech32)]
+    last_deleg_ssn_withdraw_cycle = last_deleg_ssn_withdraw_cycle[zutils.to_base16_add(ssn_add_bech32)]
+    last_reward_cycle = state['lastrewardcycle']
+    if last_deleg_ssn_withdraw_cycle != last_reward_cycle:
+        return False
+    return True
+
+
+def check_if_all_rewards_claimed(zillion_contract, ssn_adds_bech32, deleg_wallet_bech32):
+    all_claimed = True
+    for ssn_add_bech32 in ssn_adds_bech32:
+        ssn_claimed = check_if_rewards_claimed(zillion_contract, ssn_add_bech32, deleg_wallet_bech32)
+        all_claimed = ssn_claimed and all_claimed
+        if not all_claimed:
+            return all_claimed
+    return all_claimed
