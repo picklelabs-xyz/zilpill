@@ -116,8 +116,8 @@ def get_wallet_deposits(zillion_contract, wallet_bech32):
     return wallet_total_deposits
 
 
-def check_if_rewards_claimed(zillion_contract, ssn_add_bech32, deleg_wallet_bech32):
-    state = zillion_contract.state
+def check_if_rewards_claimed(zillion_contract_state, ssn_add_bech32, deleg_wallet_bech32):
+    state = zillion_contract_state
     last_deleg_ssn_withdraw_cycle = state['last_withdraw_cycle_deleg'][zutils.to_base16_add(deleg_wallet_bech32)]
     last_deleg_ssn_withdraw_cycle = last_deleg_ssn_withdraw_cycle[zutils.to_base16_add(ssn_add_bech32)]
     last_reward_cycle = state['lastrewardcycle']
@@ -128,9 +128,11 @@ def check_if_rewards_claimed(zillion_contract, ssn_add_bech32, deleg_wallet_bech
 
 def check_if_all_rewards_claimed(zillion_contract, ssn_adds_bech32, deleg_wallet_bech32):
     all_claimed = True
+    zillion_contract_state = zillion_contract.state
+    last_reward_cycle = zillion_contract_state['lastrewardcycle']
     for ssn_add_bech32 in ssn_adds_bech32:
-        ssn_claimed = check_if_rewards_claimed(zillion_contract, ssn_add_bech32, deleg_wallet_bech32)
+        ssn_claimed = check_if_rewards_claimed(zillion_contract_state, ssn_add_bech32, deleg_wallet_bech32)
         all_claimed = ssn_claimed and all_claimed
         if not all_claimed:
             return all_claimed
-    return all_claimed
+    return all_claimed, last_reward_cycle

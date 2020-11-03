@@ -2,6 +2,7 @@ import src.utils.zil_utils as zutils
 import src.CONSTANTS as CNSTS
 import os
 import src.CONF as CONF
+import json
 from src.stk import zillion
 from src.utils import email_info
 from datetime import datetime
@@ -26,10 +27,21 @@ ssn_adds = [CNSTS.SSN.SSN1_VIEW_BLOCK_BECH32,
             CNSTS.SSN.SSN3_MOONLET_BECH32,
             CNSTS.SSN.SSN4_EZIL_BECH32]
 
-rewards_claimed = zillion.check_if_all_rewards_claimed(zillion_contract, ssn_adds,
-                                                       os.getenv(CONF.PRIM_WALLET['BECH32']))
+rewards_claimed, last_reward_cycle = zillion.check_if_all_rewards_claimed(zillion_contract, ssn_adds,
+                                                                          os.getenv(CONF.PRIM_WALLET['BECH32']))
 
-if rewards_claimed:
+last_exec_json_file_path = "../../output/circ_supply_calc_last_exec.json"
+last_exec_json = {}
+
+if os.path.exists(last_exec_json_file_path):
+    with open(last_exec_json_file_path) as last_exec_json_file:
+        last_exec_json = json.load(last_exec_json_file)
+
+json_last_reward_cycle = 0
+if 'last_reward_cycle' in last_exec_json:
+    json_last_reward_cycle = int(last_exec_json['last_reward_cycle'])
+
+if rewards_claimed and int(last_reward_cycle) > json_last_reward_cycle:
     wallet_total_deposits = zillion.get_wallet_deposits(zillion_contract, os.getenv(CONF.PRIM_WALLET['BECH32']))
     circulating_supply = zutils.get_circulating_supply()
     wallet_deposit_as_per_circ_supply = (float(wallet_total_deposits) / circulating_supply) * 100
@@ -53,4 +65,8 @@ if rewards_claimed:
     print("\n".join(e_msg))
 
     email_info.mail_it(e_subject, "\n".join(e_msg), e_from_name, e_from_pwd, e_from_mail, e_to_mails)
+
+    last_exec_json = {"execution_at": dt, "last_reward_cycle": int(last_reward_cycle)}
+    with open(last_exec_json_file_path, 'w') as outfile:
+        json.dump(last_exec_json, outfile)
 
