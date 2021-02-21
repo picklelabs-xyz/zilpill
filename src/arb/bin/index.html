@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Data</title>
+    <script src='https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js'> </script>
+</head>
+<body>
+DataSee
+
+<div id="chart"></div>
+
+<div id="zil_trades"> Trades</div>
+
+<h3>Settings</h3>
+<div id="settings">
+    <div>
+        <input type="checkbox"/> RSI
+        <input type="text" id="rsi_length" name = "rsi_length" placeholder="14"/>
+        Oversold
+        <input type="text" id="rsi_oversold" name = "rsi_oversold" placeholder="70"/>
+        Overbought
+        <input type="text" id="rsi_overbought" name = "rsi_overbought" placeholder="70"/>
+    </div>
+
+</div>
+
+<script>
+    /*var binZilSocket = new WebSocket("wss://stream.binance.com:9443/ws/zilusdt@trade");
+    var zil_trades_div = document.getElementById('zil_trades')
+
+    binZilSocket.onmessage = function (event) {
+        console.log(event)
+        var messageObject = JSON.parse(event.data);
+        zil_trades_div.append(messageObject.p);
+    }*/
+</script>
+
+<script src="chart.js">
+</script>
+</body>
+</html>

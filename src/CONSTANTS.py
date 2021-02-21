@@ -3,6 +3,8 @@ import math
 # Got all the below addresses/info from https://viewblock.io/zilliqa
 
 ZIL_API_URL = "https://api.zilliqa.com/"
+# ZIL_API_URL = "https://ssn.zillet.io"
+
 # Supply URL obtained from coingecko's zil page
 ZIL_SUPPLY_URL = "https://stat.zilliqa.com/api/supply"
 
