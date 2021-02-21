@@ -4,7 +4,7 @@ Requirements:
 
 
 ### Instructions to install:
-* ``mkvirtualenv  -i "pip-tools==5.*" zil``  creates the venv named `zil`
+* ``mkvirtualenv  -i "pip-tools==5.4.0" zil``  creates the venv named `zil`
 
 * ``pip-compile --generate-hashes`` Generates the-hashes from `requirement.in`
   to `requirement.txt`, freezes the requirements.
