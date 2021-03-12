@@ -26,10 +26,7 @@ zillion_contract = zutils.load_contract(CNSTS.CONTRACT.ZILLION_CONTRACT_ADD,
 
 
 # Put your SSNs here to withdraw the rewards
-ssn_adds = [CNSTS.SSN.SSN1_VIEW_BLOCK_BECH32,
-            CNSTS.SSN.SSN2_ZILLACRACY_BECH32,
-            CNSTS.SSN.SSN3_MOONLET_BECH32,
-            CNSTS.SSN.SSN4_EZIL_BECH32]
+ssn_adds = [CNSTS.SSN.SSN1_VIEW_BLOCK_BECH32]
 
 now = datetime.now()
 dt = now.strftime("%d/%m/%Y %H:%M:%S")
