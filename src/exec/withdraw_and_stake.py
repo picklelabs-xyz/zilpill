@@ -47,7 +47,7 @@ print("Rewards: ", rewards)
 e_msg = ['Rewards withdrawn: ' + str(rewards)]
 if rewards > 25:
     # Put your SSN here to stake the rewards
-    success = zillion.stake_zil(zillion_proxy_contract, CNSTS.SSN.SSN4_EZIL_BECH32, rewards)
+    success = zillion.stake_zil(zillion_proxy_contract, CNSTS.SSN.SSN1_VIEW_BLOCK_BECH32, rewards)
     e_msg.append('Staking: ' + str(success))
     e_msg.append('\n\n')
     e_msg.append("\n".join(info))
