@@ -77,10 +77,6 @@ def get_updated_x_y(x, y, m_dash):
     y_dash = product/x_dash
     return x_dash, y_dash
 
-def impermanent_loss(x, y, x_dash, y_dash, u_dash, v_dash):
-    original_worth = worth(x, u_dash, y, v_dash)
-    updated_worth = worth(x_dash, u_dash, y_dash, v_dash)
-    return (updated_worth - original_worth), original_worth
 
 a1_pool_weight = 0.5
 a2_pool_weight = 0.5
