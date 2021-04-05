@@ -38,86 +38,100 @@ def get_binance_data():
     return candles
 
 
-# if asset1 changes by delta_asset1 %, and asset2 changes by delta_asset2 %, then calculate new relative price
-def get_updated_price(asset_price_in_usd, asset_price_delta):
-    return asset_price_in_usd * (1 + asset_price_delta)
+# 1. Following constant product formula for market making, x * y = k
+# 2. where, x is the amount of asset 1, and y is the amount of asset 2 pooled in.
+# 3. Assuming price of asset 1 in relation to asset 2 is m, 
+# 4. then y = m * x, therefore k = x * m * x 
+# 5. Considering a change in relative price of asset 1 to asset 2 i.e. m -> m',
+# 6. Updated state of pooled assets x -> x', y-> y'
+# 7. x' * m' * x' = k, therefore x' * m' * x' = x * m * x
+# 8. x' = sqr_rt((x * m * x)/m')
+# 9. Assuming m' = n * m, where it can be read as new relative price of asset 1 is n% of the current price
+# 10. x' = sqr_rt((x * x)/n) 
+# 11. y' = k/x'
+# 12. Lets consider the $ value of asset 2 unit as v, asset 1 unit $ value (u) would be v * m
+# 13. Therefore, total worth of the assets would be x * (v * m) + y * v  
+# 14. Considering the updated $ value of asset 2 as u'
+# 15. Difference in assets worth would be: (x' * (u' * m') + y' * u') - (x * (u * m) + y * u) 
+# 16. This difference is referred to as impermanent loss i.e. comparing the buy and hold strategy vs putting assets in the pool
 
+# Experiment with different price curves,
+# e.g. assuming a delta of 1-5% change in reaching the target price change in the assets
 
-def get_current_total_worth(asset1_amount, asset1_price, asset2_amount, asset2_price):
-    return asset1_amount * asset1_price + asset2_amount * asset2_price
+def get_updated_price(price, price_delta):
+    return price * (1 + price_delta)
 
+def k(x, y):
+    return x * y
 
-def get_pool_asset_amounts(asset1_amount,
-                           asset2_amount,
-                           updated_asset1_rel_price_to_asset2):
-    asset1_rel_price_to_asset2 = asset2_amount/asset1_amount
-    print(asset1_rel_price_to_asset2)
-    constant_product = asset1_amount * asset2_amount
-    asset1_updated_amount = math.sqrt((asset1_rel_price_to_asset2/updated_asset1_rel_price_to_asset2)
-                                     * asset1_amount * asset1_amount)
-    asset2_updated_amount = constant_product/asset1_updated_amount
-    return asset1_updated_amount, asset2_updated_amount
+def worth(x, u, y, v):
+    return x * u + y * v
 
+def worth_with_m(x, y, v, m):
+    return x * (v * m) + y * v
 
-asset1_pool_target_weight = 0.5
-asset2_pool_target_weight = 0.5
+def get_updated_x_y(x, y, m_dash):
+    m = y/x
+    product = k(x,y)
+    x_dash = math.sqrt((m/m_dash) * x * x)
+    y_dash = product/x_dash
+    return x_dash, y_dash
 
-# asset1_borrow_rate = 5 # Rate of borrowing an asset from a centralized exchange or a smart contract etc.
-# asset2_borrow_rate = 10
-# asset1_liquidity_range_constraint = 5 # Percentage change in liquidity +- both, can be separated as well
+def impermanent_loss(x, y, x_dash, y_dash, u_dash, v_dash):
+    original_worth = worth(x, u_dash, y, v_dash)
+    updated_worth = worth(x_dash, u_dash, y_dash, v_dash)
+    return (updated_worth - original_worth), original_worth
 
-asset1_price_in_usd = 0.17
-asset2_price_in_usd = 1
+a1_pool_weight = 0.5
+a2_pool_weight = 0.5
+a1_borrow_rate = 5 # Rate of borrowing an asset from a centralized exchange or a smart contract etc.
+a2_borrow_rate = 10
+# asset1_constraint_range = 5 # Percentage change in liquidity +- both, can be separated as well
 
-asset1_rel_price_in_asset2 = asset1_price_in_usd/asset2_price_in_usd
+# Assuming following, user pool in: 10K $, zil at 0.17$, Zil-USD pool
+# change of 50% price in Zil
+# Goal is to maximize time stayed in the pool, while minimizing the impermanent loss
 
-user_invested_amount_in_usd = 100000
+# Assume asset 1 as x, and asset 2 as y following the above formulation
+u = 0.17 # $ price of asset 1
+v = 1 # $ price of asset 2
+m = u/v
+delta_u = 0.5 # Percent change
+u_dash = get_updated_price(u, delta_u)
+delta_v = 0.0 # Percent change
+v_dash = get_updated_price(v, delta_v)
+m_dash = u_dash/v_dash
 
-asset1_price_delta = 0.248 # In percentage
-asset1_updated_price = get_updated_price(asset1_price_in_usd, asset1_price_delta)
-
-asset2_price_delta = 0.0 # In percentage
-asset2_updated_price = get_updated_price(asset2_price_in_usd, asset2_price_delta)
-
-asset1_updated_rel_price_in_asset2 = asset1_updated_price/asset2_updated_price
-
-# assuming a delta of 1-5% change in reaching the target price change in asset 1
-
-user_asset1_initial_amount = (user_invested_amount_in_usd * asset1_pool_target_weight) / asset1_price_in_usd
-user_asset2_initial_amount = (user_invested_amount_in_usd * asset2_pool_target_weight) / asset2_price_in_usd
-
-print("Initial worth", get_current_total_worth(user_asset1_initial_amount, asset1_price_in_usd,
-                                               user_asset2_initial_amount, asset2_price_in_usd))
+user_amount_in_usd = 10000
+user_x = (user_amount_in_usd * a1_pool_weight) / u
+user_y = (user_amount_in_usd * a2_pool_weight) / v
+print("user x: ", user_x, " user y: ", user_y)
+user_worth = worth(user_x, u, user_y, v)
+print("Initial user worth", user_worth)
 
 # To ignore slippage for the simulation, assume a very high amount of liquidity in the select pool
-asset_pool_liquidity_multiplier = 1000
-pool_asset1_initial_amount = user_asset1_initial_amount * asset_pool_liquidity_multiplier
-pool_asset2_initial_amount = user_asset2_initial_amount * asset_pool_liquidity_multiplier
+# Assuming a high asset1-asset2 dex pool, i.e. <0.1% slippage for any invested amount
+pool_approx_liq_multiplier = 1000
+pool_x = user_x * pool_approx_liq_multiplier
+pool_y = user_y * pool_approx_liq_multiplier
+print("pool x: ", pool_x, " pool y: ", pool_y)
 
-print("zil initial: ", asset1_rel_price_in_asset2)
-print("zil updated: ", asset1_updated_rel_price_in_asset2)
+pool_x_dash, pool_y_dash = get_updated_x_y(pool_x, pool_y, m_dash)
+print("pool x: ", pool_x_dash, " pool y: ", pool_y_dash)
 
-pool_asset1_updated_amount, pool_asset2_updated_amount = get_pool_asset_amounts(pool_asset1_initial_amount,
-                                                                                pool_asset2_initial_amount,
-                                                                                asset1_updated_rel_price_in_asset2)
-user_asset1_updated_amount = pool_asset1_updated_amount/asset_pool_liquidity_multiplier
-user_asset2_updated_amount = pool_asset2_updated_amount/asset_pool_liquidity_multiplier
+user_x_dash = pool_x_dash / pool_approx_liq_multiplier
+user_y_dash = pool_y_dash / pool_approx_liq_multiplier
+print("user x: ", user_x_dash, " user y: ", user_y_dash)
+user_updated_worth = worth(user_x_dash, u_dash, user_y_dash, v_dash)
+print("Updated user worth", user_updated_worth)
 
+print("Asset 1 price with ", round(delta_u*100, 2), " % change:" , u, " -> ", u_dash)
+print("Asset 2 price with ", round(delta_v*100, 2), " % change:" , v, " -> ", v_dash)
 
-print("zil: ", user_asset1_initial_amount)
-print("usd: ", user_asset2_initial_amount)
-print("zil change: ", asset1_price_delta * 100, " %")
-print("zil: ", user_asset1_updated_amount)
-print("usd: ", user_asset2_updated_amount)
+user_buy_hold_worth = worth(user_x, u_dash, user_y, v_dash)
+il = (user_updated_worth - user_buy_hold_worth)/user_buy_hold_worth
+print("Impermanent loss %: ", round(il, 2))
+print("User buy and hold worth: ", round(user_buy_hold_worth, 2))
 
-current_worth = get_current_total_worth(user_asset1_updated_amount, asset1_updated_price,
-                        user_asset2_updated_amount, asset2_updated_price)
-print("Current worth", current_worth)
-
-hold_strategy_worth = get_current_total_worth(user_asset1_initial_amount, asset1_updated_price,
-                                                     user_asset2_initial_amount, asset2_updated_price)
-print("Hold strategy worth", hold_strategy_worth)
-impermanent_loss = round(((current_worth-hold_strategy_worth)/hold_strategy_worth) * 100, 2)
-print("Impermanent loss: ", impermanent_loss)
-
-print("Asset 1 % change: ", round(((user_asset1_updated_amount - user_asset1_initial_amount)/user_asset1_initial_amount)*100, 2))
+print("Asset 1 % change: ", round(((user_x_dash - user_x)/user_x)*100, 2))
+print("Asset 2 % change: ", round(((user_y_dash - user_y)/user_y)*100, 2))
