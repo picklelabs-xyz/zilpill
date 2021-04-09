@@ -2,23 +2,43 @@ import math
 
 # Got all the below addresses/info from https://viewblock.io/zilliqa
 
-ZIL_API_URL = "https://api.zilliqa.com/"
-# ZIL_API_URL = "https://ssn.zillet.io"
+ZILLIQA_API_URL = "https://api.zilliqa.com/"
+ZILLET_API_URL = "https://ssn.zillet.io"
+KUCOIN_API_URL = "https://staking-zil.kucoin.com/api"
+VIEWBLOCK_API_URL = "https://ssn-api-mainnet.viewblock.io"
+EZIL_API_URL = "https://zil-staking.ezil.me/api"
+ZILLIQA_STAKING_API_URL = "https://stakingseed-api.seed.zilliqa.com"
+ZILLACRACY_API_URL = "https://ssn.zillacracy.com/api"
+
+
+
+ZIL_API_URL_BASKET = (ZILLIQA_API_URL, ZILLET_API_URL, KUCOIN_API_URL,
+                      VIEWBLOCK_API_URL, EZIL_API_URL, ZILLIQA_STAKING_API_URL,
+                      ZILLACRACY_API_URL)
+
 
 # Supply URL obtained from coingecko's zil page
 ZIL_SUPPLY_URL = "https://stat.zilliqa.com/api/supply"
+
+
 
 # Contracts
 class CONTRACT:
     ZIL_SWAP_CONTRACT_ADD = "zil1hgg7k77vpgpwj3av7q7vv5dl4uvunmqqjzpv2w"
     ZILLION_CONTRACT_PROXY_ADD = "zil1g029nmzsf36r99vupp4s43lhs40fsscx3jjpuy"
     ZILLION_CONTRACT_ADD = "zil1k7qwsz2m3w595u29je0dvv4nka62c5wwrp8r8p"
+    ZIL_CHESS_CONTRACT_ADD = "zil18m9qjcf2l22mhl4mxxxutcdprsw5xuclvhwglq"
 
 
 # Token Contracts
 class TOKEN:
     GZIL_BECH32_ADD = 'zil14pzuzq6v6pmmmrfjhczywguu0e97djepxt8g3e'
-    XSGD_BECH32_PROXY_ADD = 'zil1zu72vac254htqpg3mtywdcfm84l3dfd9qzww8t'
+    XSGD_BECH32_ADD = 'zil1zu72vac254htqpg3mtywdcfm84l3dfd9qzww8t'
+    ZCH_BECH32_ADD = 'zil1s8xzysqcxva2x6aducncv9um3zxr36way3fx9g'
+    SRV_BECH32_ADD = "zil168qdlq4xsua6ac9hugzntqyasf8gs7aund882v"
+    ZWAP_BECH32_ADD = 'zil1p5suryq6q647usxczale29cu3336hhp376c627'
+    CARB_BECH32_ADD = 'zil1hau7z6rjltvjc95pphwj57umdpvv0d6kh2t8zk'
+
 
 
 # SSN (Seed Stake Node) Operator Addresses

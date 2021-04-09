@@ -7,56 +7,55 @@ from src.utils import email_info
 from src.arb.zil import zilswap
 from pyzil.account import Account
 from dotenv import load_dotenv
+from pyzil.zilliqa.units import Zil, Qa
+from pyzil.zilliqa import chain
+
+vMainNet = chain.BlockChain(zutils.get_zil_api_url(), version=65537, network_id=1)
+chain.set_active_chain(vMainNet)
 
 load_dotenv()
 personal_env = os.getenv(CONF.PERSONAL_ENV_FILE)
 load_dotenv(personal_env)
 
 # Put your keystore file path here or in CONF file
-account = Account(private_key=zutils.get_key(os.getenv(CONF.SEC_WALLET['KEYSTORE']),
-                                             os.getenv(CONF.SEC_WALLET['PASSWORD'])
+account = Account(private_key=zutils.get_key(os.getenv(CONF.PRIM_WALLET['KEYSTORE']),
+                                             os.getenv(CONF.PRIM_WALLET['PASSWORD'])
                                              ))
 
 # Load zillion staking contract with your own wallet
 zilswap_contract = zutils.load_contract(CNSTS.CONTRACT.ZIL_SWAP_CONTRACT_ADD,
                                         account)
 
-pools = zilswap.get_contract_pools(zilswap_contract)
 
-now = datetime.now()
-dt = now.strftime("%d/%m/%Y %H:%M:%S")
+tokens_of_interest = {"ZCH": CNSTS.TOKEN.ZCH_BECH32_ADD,
+                      "XSGD": CNSTS.TOKEN.XSGD_BECH32_ADD,
+                      "ZWAP": CNSTS.TOKEN.ZWAP_BECH32_ADD,
+                      "CARB": CNSTS.TOKEN.CARB_BECH32_ADD,
+                      'GZIL': CNSTS.TOKEN.GZIL_BECH32_ADD
+                      }
 
-pool_token_count, pool_zil_count = zilswap.get_token_pool_size(
-    pools,
-    zutils.to_base16_add(CNSTS.TOKEN.GZIL_BECH32_ADD),
-    zutils.get_token_dec_divisor(zutils.load_contract(CNSTS.TOKEN.GZIL_BECH32_ADD)))
+user_total_pooled_amount_in_zil = 0
 
-fees = zilswap.fees
+user_wallet_bech32 = os.getenv(CONF.PRIM_WALLET['BECH32'])
+print("User address: ", user_wallet_bech32)
+total_zil_pooled = 0
+zil_usd_price = None
 
-token_amounts = [1, 10, 20]
-token_amount_and_price = {}
-infos = []
+for token in tokens_of_interest:
+    token_bech32 = tokens_of_interest[token]
+    user_share_per, user_token_pool_zil_bal, user_token_pool_token_bal = \
+        zilswap.get_user_token_pool_contri(zilswap_contract,
+                                           token_bech32,
+                                           user_wallet_bech32)
+    print(token, " pool : ",
+          user_share_per, " : Zil - ",
+          user_token_pool_zil_bal, " :",
+          token, " - ", user_token_pool_token_bal)
 
-for token_amount in token_amounts:
-    token_price_for_tx = zilswap.get_pool_token_sell_price(token_amount,
-                                                           pool_token_count,
-                                                           pool_zil_count,
-                                                           fees)
-    token_price_for_tx = round(token_price_for_tx)
-    info = "GZIL token price, if selling " + str(token_amount) + " units: " + str(token_price_for_tx)
-    token_amount_and_price[token_amount] = token_price_for_tx
-    infos.append(info)
+    total_zil_pooled += user_token_pool_zil_bal * 2
 
-e_subject = "swap: execution at " + dt
-e_from_name = "Machine"
-e_from_mail = os.getenv(CONF.EMAIL_1)
-e_from_pwd = os.getenv(CONF.EMAIL_1_PASSWORD)
-e_to_mails = [os.getenv(CONF.EMAIL_1), os.getenv(CONF.EMAIL_2)]
-e_msg = "\n".join(infos)
+zil_sgd_price = zilswap.get_zil_xsgd_price(zilswap_contract, total_zil_pooled)
+zil_usd_price = zil_sgd_price * CNSTS.SGD
+print(zil_usd_price)
+print("User total pooled amount in zil: ", total_zil_pooled, " - ", round(total_zil_pooled * zil_usd_price, 2), "$")
 
-print("\n")
-print(e_subject)
-print(e_msg)
-
-if token_amount_and_price[token_amounts[1]] > 2500:
-    email_info.mail_it(e_subject, e_msg, e_from_name, e_from_pwd, e_from_mail, e_to_mails)

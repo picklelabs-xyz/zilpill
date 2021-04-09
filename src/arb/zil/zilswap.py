@@ -1,7 +1,10 @@
+import src.utils.zil_utils as zutils
+import src.CONSTANTS as CNSTS
 from pprint import pprint
 from pyzil.zilliqa import chain
 from pyzil.contract import Contract
 from pyzil.zilliqa.units import Zil, Qa
+
 
 chain.set_active_chain(chain.MainNet)
 
@@ -12,15 +15,60 @@ def get_contract_pools(contract):
     return contract.state['pools']
 
 
-def get_token_pool_size(contract_pools, token_base_16, token_dec_divisor):
-    token_pool = contract_pools[token_base_16]
+def get_balances(contract):
+    return contract.state['balances']
+
+
+def get_total_contributions(contract):
+    return contract.state['total_contributions']
+
+
+def get_user_token_pool_contri(contract, token_bech32, user_bech32):
+    pools = get_contract_pools(contract)
+    balances = get_balances(contract)
+    total_contributions = get_total_contributions(contract)
+    token_base16 = zutils.to_base16_add(token_bech32)
+    token_dec_divisor = zutils.get_token_dec_divisor(zutils.load_contract(token_bech32))
+    token_balances = balances[token_base16]
+    token_total_contributions = int(total_contributions[token_base16])
+    user_token_pool_contribution = int(token_balances[zutils.to_base16_add(user_bech32)])
+    token_zil_pool_bal = pools[token_base16]
+    zil_pool_bal = int(Qa(token_zil_pool_bal['arguments'][0]).toZil())
+    token_pool_bal = int(token_zil_pool_bal['arguments'][1]) / token_dec_divisor
+    user_share_per = user_token_pool_contribution / token_total_contributions
+    return round(user_share_per * 100, 4), user_share_per * zil_pool_bal, user_share_per * token_pool_bal
+
+
+def get_token_pool_size(contract, token_bech32):
+    token_base16 = zutils.to_base16_add(token_bech32)
+    token_dec_divisor = zutils.get_token_dec_divisor(zutils.load_contract(token_bech32))
+    pools = get_contract_pools(contract)
+    token_pool = pools[token_base16]
     token_pool_args = token_pool['arguments']
     pool_zil_count = int(Qa(token_pool_args[0]).toZil())
     pool_token_count = int(token_pool_args[1])/token_dec_divisor
     return pool_token_count, pool_zil_count
 
 
-def get_pool_token_sell_price(token_amount_to_be_sold, pool_token_count, pool_zil_count, fees):
+def get_token_zil_price(contract, token_bech32, token_amount):
+    pool_token_count, pool_zil_count = get_token_pool_size(contract,
+                                                           zutils.get_token_dec_divisor(
+                                                               zutils.load_contract(token_bech32)
+                                                           ))
+    token_price_for_tx = get_pool_token_sell_price(token_amount,
+                                                   pool_token_count,
+                                                   pool_zil_count)
+    token_price_for_tx = round(token_price_for_tx)
+    return token_price_for_tx
+
+
+def get_zil_xsgd_price(contract, zil_amount):
+    token_bech32 = CNSTS.TOKEN.XSGD_BECH32_ADD
+    pool_token_count, pool_zil_count = get_token_pool_size(contract, token_bech32)
+    return get_pool_token_sell_price(zil_amount, pool_zil_count, pool_token_count)
+
+
+def get_pool_token_sell_price(token_amount_to_be_sold, pool_token_count, pool_zil_count):
     product = pool_token_count * pool_zil_count
     pool_token_amount_after_tx = pool_token_count + token_amount_to_be_sold
     token_price_for_tx = (pool_zil_count - product / pool_token_amount_after_tx) / token_amount_to_be_sold
@@ -38,7 +86,6 @@ def sell_token_for_zil_tx(contract, token_address, token_amount, min_zil_amount,
                                  ],
                          gas_limit=30000
                          )
-
     pprint(resp)
     pprint(contract.last_receipt)
 
@@ -52,7 +99,6 @@ def sell_zil_for_token_tx(contract, token_address, min_token_amount, deadline_bl
                                  ],
                          gas_limit=30000,
                          amount=z_amount)
-
     pprint(resp)
     pprint(contract.last_receipt)
 
@@ -72,6 +118,34 @@ def zilswap_token_for_token_tx(contract, token0_address, token1_address, token0_
     pprint(contract.last_receipt)
 
 
+# Needs to be tested
+def add_liquidity(contract, token_address, min_contribution_amount, max_token_amount, deadline_block):
+    resp = contract.call(method="AddLiquidity",
+                         params=[Contract.value_dict("token_address", "ByStr20", token_address),
+                                 Contract.value_dict("min_contribution_amount", "ByStr20", min_contribution_amount),
+                                 Contract.value_dict("max_token_amount", "Uint128", max_token_amount),
+                                 Contract.value_dict("deadline_block", "BNum", deadline_block)
+                                 ])
+    pprint(resp)
+    pprint(contract.last_receipt)
+
+
+# Needs to be tested
+def remove_liquidity(contract, token_address, contribution_amount, min_zil_amount, min_token_amount, deadline_block):
+    resp = contract.call(method="RemoveLiquidity",
+                         params=[Contract.value_dict("token_address", "ByStr20", token_address),
+                                 Contract.value_dict("contribution_amount", "Uint128", contribution_amount),
+                                 Contract.value_dict("min_zil_amount", "Uint128", min_zil_amount),
+                                 Contract.value_dict("min_token_amount", "Uint128", min_token_amount),
+                                 Contract.value_dict("deadline_block", "BNum", deadline_block)
+                                 ])
+    pprint(resp)
+    pprint(contract.last_receipt)
+
+
+
+def limit_swap():
+    return
 
 
 

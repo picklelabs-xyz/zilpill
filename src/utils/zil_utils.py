@@ -2,13 +2,18 @@ import getpass
 import src.CONSTANTS as CNSTS
 import math
 import requests
+import random
 from src.pyzil_mod.account import Account as ModAccount
 from pyzil.crypto import zilkey
 from pyzil.contract import Contract
 from pyzil.zilliqa.api import ZilliqaAPI, APIError
 
 
-api = ZilliqaAPI(CNSTS.ZIL_API_URL)
+def get_zil_api_url():
+    return random.choice(CNSTS.ZIL_API_URL_BASKET)
+
+
+api = ZilliqaAPI(get_zil_api_url())
 link = CNSTS.ZIL_SUPPLY_URL
 
 
@@ -18,6 +23,10 @@ def address0x(add):
 
 def to_base16_add(bech32_add):
     return address0x(zilkey.from_bech32_address(bech32_add))
+
+
+def to_bech32_address(base16_add):
+    return zilkey.to_bech32_address(base16_add)
 
 
 def load_contract(contract_add, account=None):
@@ -75,9 +84,6 @@ def print_contract_details(contract, text_file=None):
 
 def get_circulating_supply():
     return float(requests.get(link).text)
-
-
-
 
 
 
