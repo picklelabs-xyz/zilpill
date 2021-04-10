@@ -31,12 +31,42 @@ def get_user_token_pool_contri(contract, token_bech32, user_bech32):
     token_dec_divisor = zutils.get_token_dec_divisor(zutils.load_contract(token_bech32))
     token_balances = balances[token_base16]
     token_total_contributions = int(total_contributions[token_base16])
-    user_token_pool_contribution = int(token_balances[zutils.to_base16_add(user_bech32)])
+    user_base16 = zutils.to_base16_add(user_bech32)
+    user_token_pool_contribution = 0.0
+    if user_base16 in token_balances:
+        user_token_pool_contribution = int(token_balances[zutils.to_base16_add(user_bech32)])
     token_zil_pool_bal = pools[token_base16]
     zil_pool_bal = int(Qa(token_zil_pool_bal['arguments'][0]).toZil())
     token_pool_bal = int(token_zil_pool_bal['arguments'][1]) / token_dec_divisor
     user_share_per = user_token_pool_contribution / token_total_contributions
     return round(user_share_per * 100, 4), user_share_per * zil_pool_bal, user_share_per * token_pool_bal
+
+
+def get_pooled_assets_in_zil(contract, tokens, user_wallet_bech32):
+    total_zil_pooled = 0
+    for token in tokens:
+        token_bech32 = tokens[token]
+        user_wallet_token_bal = zutils.get_token_balance(token_bech32, user_wallet_bech32)
+        amount_to_gauge_price = user_wallet_token_bal
+        if user_wallet_token_bal <= 2:
+            amount_to_gauge_price = 1
+        token_zil_price = get_token_zil_price(contract, token_bech32, amount_to_gauge_price)
+        user_token_zil_bal = token_zil_price * user_wallet_token_bal
+        print(token,
+              " user bal: ", user_wallet_token_bal,
+              " price in zils: ", token_zil_price,
+              " value in zils: ", user_token_zil_bal)
+        user_share_per, user_token_pool_zil_bal, user_token_pool_token_bal = \
+            get_user_token_pool_contri(contract, token_bech32, user_wallet_bech32)
+        print(token, " pool : ",
+              user_share_per, " : Zil - ",
+              user_token_pool_zil_bal, " :",
+              token, " - ", user_token_pool_token_bal)
+
+        total_zil_pooled += user_token_pool_zil_bal * 2
+        total_zil_pooled += user_token_zil_bal
+    return total_zil_pooled
+
 
 
 def get_token_pool_size(contract, token_bech32):
@@ -51,14 +81,11 @@ def get_token_pool_size(contract, token_bech32):
 
 
 def get_token_zil_price(contract, token_bech32, token_amount):
-    pool_token_count, pool_zil_count = get_token_pool_size(contract,
-                                                           zutils.get_token_dec_divisor(
-                                                               zutils.load_contract(token_bech32)
-                                                           ))
+    pool_token_count, pool_zil_count = get_token_pool_size(contract, token_bech32)
     token_price_for_tx = get_pool_token_sell_price(token_amount,
                                                    pool_token_count,
                                                    pool_zil_count)
-    token_price_for_tx = round(token_price_for_tx)
+    token_price_for_tx = round(token_price_for_tx, 2)
     return token_price_for_tx
 
 

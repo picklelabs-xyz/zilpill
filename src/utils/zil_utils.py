@@ -52,16 +52,11 @@ def get_token_dec_divisor(token_contract):
             return math.pow(10, int(param['value']))
 
 
-def get_token_balance(token_bech32, address_base16):
+def get_token_balance(token_bech32, address_bech32, token_dec_divisor=None):
+    address_base16 = to_base16_add(address_bech32)
     token_contract = load_contract(token_bech32)
-    token_dec_divisor = get_token_dec_divisor(token_contract)
-    if address_base16 in token_contract.state['balances']:
-        return int(token_contract.state['balances'][address_base16]) / token_dec_divisor
-    return 0
-
-
-def get_token_balances(tokens_bech32, token_dec_divisor, address_base16):
-    token_contract = load_contract(tokens_bech32)
+    if token_dec_divisor is None:
+        token_dec_divisor = get_token_dec_divisor(token_contract)
     if address_base16 in token_contract.state['balances']:
         return int(token_contract.state['balances'][address_base16]) / token_dec_divisor
     return 0

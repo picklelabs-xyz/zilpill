@@ -38,7 +38,7 @@ class TOKEN:
     SRV_BECH32_ADD = "zil168qdlq4xsua6ac9hugzntqyasf8gs7aund882v"
     ZWAP_BECH32_ADD = 'zil1p5suryq6q647usxczale29cu3336hhp376c627'
     CARB_BECH32_ADD = 'zil1hau7z6rjltvjc95pphwj57umdpvv0d6kh2t8zk'
-
+    ZYRO_BECH32_ADD = 'zil1ucvrn22x8366vzpw5t7su6eyml2auczu6wnqqg'
 
 
 # SSN (Seed Stake Node) Operator Addresses
