@@ -1,11 +1,12 @@
 import math
+from pyzil.zilliqa.units import Zil, Qa
 
 # Got all the below addresses/info from https://viewblock.io/zilliqa
 
 ZILLIQA_API_URL = "https://api.zilliqa.com/"
 ZILLET_API_URL = "https://ssn.zillet.io"
 KUCOIN_API_URL = "https://staking-zil.kucoin.com/api"
-VIEWBLOCK_API_URL = "https://ssn-api-mainnet.viewblock.io"
+# VIEWBLOCK_API_URL = "https://ssn-api-mainnet.viewblock.io" It does not seem working
 EZIL_API_URL = "https://zil-staking.ezil.me/api"
 ZILLIQA_STAKING_API_URL = "https://stakingseed-api.seed.zilliqa.com"
 ZILLACRACY_API_URL = "https://ssn.zillacracy.com/api"
@@ -13,8 +14,7 @@ ZILLACRACY_API_URL = "https://ssn.zillacracy.com/api"
 
 
 ZIL_API_URL_BASKET = (ZILLIQA_API_URL, ZILLET_API_URL, KUCOIN_API_URL,
-                      VIEWBLOCK_API_URL, EZIL_API_URL, ZILLIQA_STAKING_API_URL,
-                      ZILLACRACY_API_URL)
+                      EZIL_API_URL, ZILLIQA_STAKING_API_URL, ZILLACRACY_API_URL)
 
 
 # Supply URL obtained from coingecko's zil page
@@ -58,3 +58,10 @@ SGD = 0.74  # $
 
 TEST_ZIL_AMOUNT = 1
 
+DEADLINE_IN_BLOCKS = 15
+
+
+ZLP_AVG_GAS_PRICE = Qa(2000000000)
+ZLP_FAST_GAS_PRICE = Qa(4000000000)
+ZLP_FANTASTIC_GAS_PRICE = Qa(18000000000)
+ZLP_1HOP_SWAP_GAS_LIMIT = 5000

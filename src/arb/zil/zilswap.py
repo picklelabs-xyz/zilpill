@@ -45,6 +45,7 @@ def get_user_token_pool_contri(contract, token_bech32, user_bech32):
 def get_pooled_assets_in_zil(contract, tokens, user_wallet_bech32):
     total_zil_pooled = 0
     for token in tokens:
+        print("*" * 100)
         token_bech32 = tokens[token]
         user_wallet_token_bal = zutils.get_token_balance(token_bech32, user_wallet_bech32)
         amount_to_gauge_price = user_wallet_token_bal
@@ -65,8 +66,9 @@ def get_pooled_assets_in_zil(contract, tokens, user_wallet_bech32):
 
         total_zil_pooled += user_token_pool_zil_bal * 2
         total_zil_pooled += user_token_zil_bal
-    return total_zil_pooled
+        print("*" * 100)
 
+    return total_zil_pooled
 
 
 def get_token_pool_size(contract, token_bech32):
@@ -103,7 +105,8 @@ def get_pool_token_sell_price(token_amount_to_be_sold, pool_token_count, pool_zi
     return token_price_for_tx
 
 
-def sell_token_for_zil_tx(contract, token_address, token_amount, min_zil_amount, deadline_block, recipient_address):
+def sell_token_for_zil_tx(contract, token_address, token_amount, min_zil_amount, deadline_block, recipient_address,
+                          gas_limit, gas_price):
     resp = contract.call(method="SwapExactTokensForZIL",
                          params=[Contract.value_dict("token_address", "ByStr20", token_address),
                                  Contract.value_dict("token_amount", "Uint128", token_amount),
@@ -111,20 +114,23 @@ def sell_token_for_zil_tx(contract, token_address, token_amount, min_zil_amount,
                                  Contract.value_dict("deadline_block", "BNum", deadline_block),
                                  Contract.value_dict("recipient_address", "ByStr20", recipient_address)
                                  ],
-                         gas_limit=30000
+                         gas_limit=gas_limit,
+                         gas_price=gas_price
                          )
     pprint(resp)
     pprint(contract.last_receipt)
 
 
-def sell_zil_for_token_tx(contract, token_address, min_token_amount, deadline_block, recipient_address, z_amount):
+def sell_zil_for_token_tx(contract, token_address, min_token_amount, deadline_block, recipient_address, z_amount,
+                          gas_limit, gas_price):
     resp = contract.call(method="SwapExactZILForTokens",
                          params=[Contract.value_dict("token_address", "ByStr20", token_address),
                                  Contract.value_dict("min_token_amount", "Uint128", min_token_amount),
                                  Contract.value_dict("deadline_block", "BNum", deadline_block),
                                  Contract.value_dict("recipient_address", "ByStr20", recipient_address)
                                  ],
-                         gas_limit=30000,
+                         gas_limit=gas_limit,
+                         gas_price=gas_price,
                          amount=z_amount)
     pprint(resp)
     pprint(contract.last_receipt)
@@ -132,7 +138,8 @@ def sell_zil_for_token_tx(contract, token_address, min_token_amount, deadline_bl
 
 # Needs to be tested
 def zilswap_token_for_token_tx(contract, token0_address, token1_address, token0_amount,
-                               min_token1_amount, deadline_block, recipient_address):
+                               min_token1_amount, deadline_block, recipient_address,
+                               gas_limit, gas_price):
     resp = contract.call(method="SwapExactTokensForTokens",
                          params=[Contract.value_dict("token0_address", "ByStr20", token0_address),
                                  Contract.value_dict("token1_address", "ByStr20", token1_address),
@@ -140,39 +147,87 @@ def zilswap_token_for_token_tx(contract, token0_address, token1_address, token0_
                                  Contract.value_dict("min_token_amount", "Uint128", min_token1_amount),
                                  Contract.value_dict("deadline_block", "BNum", deadline_block),
                                  Contract.value_dict("recipient_address", "ByStr20", recipient_address)
-                                 ])
+                                 ],
+                         gas_limit=gas_limit,
+                         gas_price=gas_price
+                         )
     pprint(resp)
     pprint(contract.last_receipt)
 
 
 # Needs to be tested
-def add_liquidity(contract, token_address, min_contribution_amount, max_token_amount, deadline_block):
+def add_liquidity(contract, token_address, min_contribution_amount, max_token_amount, deadline_block,
+                  gas_limit, gas_price):
     resp = contract.call(method="AddLiquidity",
                          params=[Contract.value_dict("token_address", "ByStr20", token_address),
                                  Contract.value_dict("min_contribution_amount", "ByStr20", min_contribution_amount),
                                  Contract.value_dict("max_token_amount", "Uint128", max_token_amount),
                                  Contract.value_dict("deadline_block", "BNum", deadline_block)
-                                 ])
+                                 ],
+                         gas_limit=gas_limit,
+                         gas_price=gas_price
+                         )
     pprint(resp)
     pprint(contract.last_receipt)
 
 
 # Needs to be tested
-def remove_liquidity(contract, token_address, contribution_amount, min_zil_amount, min_token_amount, deadline_block):
+def remove_liquidity(contract, token_address, contribution_amount, min_zil_amount, min_token_amount, deadline_block,
+                     gas_limit, gas_price):
     resp = contract.call(method="RemoveLiquidity",
                          params=[Contract.value_dict("token_address", "ByStr20", token_address),
                                  Contract.value_dict("contribution_amount", "Uint128", contribution_amount),
                                  Contract.value_dict("min_zil_amount", "Uint128", min_zil_amount),
                                  Contract.value_dict("min_token_amount", "Uint128", min_token_amount),
                                  Contract.value_dict("deadline_block", "BNum", deadline_block)
-                                 ])
+                                 ],
+                         gas_limit=gas_limit,
+                         gas_price=gas_price
+                         )
     pprint(resp)
     pprint(contract.last_receipt)
 
 
 
-def limit_swap():
-    return
+def limit_order(contract,
+                min_zils_per_token,
+                token_bech32,
+                token_amount_to_sell = None,
+                recipient_address_bech32 = None,
+                allowed_slippage_per = 2/100,
+                gas_limit=5000,
+                gas_price=Qa(2000000000)
+                ):
+    if recipient_address_bech32 is None:
+        recipient_address_bech32 = contract.account.bech32_address
+    if token_amount_to_sell is None:
+        return "Fail", "No tokens to sell"
+    print("To sell :", token_amount_to_sell)
+
+    price_per_token = get_token_zil_price(contract,
+                                          token_bech32,
+                                          token_amount_to_sell)
+    print("Current price per unit: ", price_per_token)
+    if price_per_token < min_zils_per_token:
+        return "Fail", "Current price lower than target minimum price, before slippage"
+
+    min_zil_amount = price_per_token * token_amount_to_sell
+    min_zil_amount = min_zil_amount - (allowed_slippage_per * min_zil_amount)
+    print("Min zil to get after slippage:", min_zil_amount)
+    min_zil_amount = str(Zil(min_zil_amount).toQa())
+    print("Min zil (with decimals) to get :", min_zil_amount)
+
+    token_dec_divisor = zutils.get_token_dec_divisor(zutils.load_contract(token_bech32))
+    token_amount_to_sell = token_amount_to_sell * token_dec_divisor
+    token_amount_to_sell = str(round(token_amount_to_sell))
+    print("Token (with decimals) to sell  :", token_amount_to_sell)
+
+    deadline_block = str(zutils.get_current_block() + CNSTS.DEADLINE_IN_BLOCKS)
+    recipient_address_base16 = zutils.to_base16_add(recipient_address_bech32)
+    return "Success", sell_token_for_zil_tx(contract, zutils.to_base16_add(token_bech32),
+                                            token_amount_to_sell, min_zil_amount,
+                                            deadline_block, recipient_address_base16,
+                                            gas_limit, gas_price)
 
 
 

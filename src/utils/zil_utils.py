@@ -63,7 +63,7 @@ def get_token_balance(token_bech32, address_bech32, token_dec_divisor=None):
 
 
 def get_current_block():
-    return api.GetCurrentMiniEpoch()
+    return int(api.GetCurrentMiniEpoch())
 
 
 def print_contract_details(contract, text_file=None):

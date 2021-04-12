@@ -6,7 +6,6 @@ from src.arb.zil import zilswap
 from src.stk import zillion
 from pyzil.account import Account
 from dotenv import load_dotenv
-from pyzil.zilliqa.units import Zil, Qa
 from pyzil.zilliqa import chain
 
 vMainNet = chain.BlockChain(zutils.get_zil_api_url(), version=65537, network_id=1)
@@ -25,13 +24,15 @@ tokens_of_interest = {"ZCH": CNSTS.TOKEN.ZCH_BECH32_ADD,
                       "ZYRO": CNSTS.TOKEN.ZYRO_BECH32_ADD
                       }
 
-# Put your keystore file path here or in CONF file
-account = Account(private_key=zutils.get_key(os.getenv(CONF.PRIM_WALLET['KEYSTORE']),
-                                             os.getenv(CONF.PRIM_WALLET['PASSWORD'])
-                                             ))
+# account = Account(private_key=zutils.get_key(os.getenv(CONF.PRIM_WALLET['KEYSTORE']),
+#                                              os.getenv(CONF.PRIM_WALLET['PASSWORD'])
+#                                              ))
+# user_wallet_bech32 = account.bech32_address
 
-# user_wallet_bech32 = os.getenv(CONF.PRIM_WALLET['BECH32'])
-user_wallet_bech32 = account.bech32_address
+user_wallet_bech32 = os.getenv(CONF.PRIM_WALLET['BECH32'])
+account = Account(address=user_wallet_bech32)
+balance = account.get_balance()
+user_zil_bal = account.get_balance()
 print("User address: ", user_wallet_bech32)
 
 zillion_contract = zutils.load_contract(CNSTS.CONTRACT.ZILLION_CONTRACT_ADD, account)
@@ -47,6 +48,6 @@ zil_sgd_price = zilswap.get_zil_xsgd_price(zilswap_contract, user_total_pooled_a
 zil_usd_price = zil_sgd_price * CNSTS.SGD
 print(zil_usd_price)
 
-user_total_zil = round(user_total_pooled_amount_in_zil + user_staked_zil, 2)
+user_total_zil = round(float(user_zil_bal) + user_total_pooled_amount_in_zil + user_staked_zil, 2)
 print("User total pooled and staked amount in zil: ", user_total_zil, " - ",
       round(user_total_zil * zil_usd_price, 2), "$")
