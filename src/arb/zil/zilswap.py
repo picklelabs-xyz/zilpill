@@ -39,7 +39,9 @@ def get_user_token_pool_contri(contract, token_bech32, user_bech32):
     zil_pool_bal = int(Qa(token_zil_pool_bal['arguments'][0]).toZil())
     token_pool_bal = int(token_zil_pool_bal['arguments'][1]) / token_dec_divisor
     user_share_per = user_token_pool_contribution / token_total_contributions
-    return round(user_share_per * 100, 4), user_share_per * zil_pool_bal, user_share_per * token_pool_bal
+
+    return round(user_share_per * 100, 4), user_share_per * zil_pool_bal, \
+           user_share_per * token_pool_bal, user_token_pool_contribution
 
 
 def get_pooled_assets_in_zil(contract, tokens, user_wallet_bech32):
@@ -57,7 +59,7 @@ def get_pooled_assets_in_zil(contract, tokens, user_wallet_bech32):
               " user bal: ", user_wallet_token_bal,
               " price in zils: ", token_zil_price,
               " value in zils: ", user_token_zil_bal)
-        user_share_per, user_token_pool_zil_bal, user_token_pool_token_bal = \
+        user_share_per, user_token_pool_zil_bal, user_token_pool_token_bal, user_token_pool_contribution = \
             get_user_token_pool_contri(contract, token_bech32, user_wallet_bech32)
         print(token, " pool : ",
               user_share_per, " : Zil - ",
@@ -100,6 +102,8 @@ def get_zil_xsgd_price(contract, zil_amount):
 def get_pool_token_sell_price(token_amount_to_be_sold, pool_token_count, pool_zil_count):
     product = pool_token_count * pool_zil_count
     pool_token_amount_after_tx = pool_token_count + token_amount_to_be_sold
+    if token_amount_to_be_sold == 0:
+        token_amount_to_be_sold = 1
     token_price_for_tx = (pool_zil_count - product / pool_token_amount_after_tx) / token_amount_to_be_sold
     token_price_for_tx = token_price_for_tx - ((fees / 100) * token_price_for_tx)
     return token_price_for_tx
@@ -156,7 +160,7 @@ def zilswap_token_for_token_tx(contract, token0_address, token1_address, token0_
 
 
 # Needs to be tested
-def add_liquidity(contract, token_address, min_contribution_amount, max_token_amount, deadline_block,
+def add_liquidity(contract, token_address, zil_amount, min_contribution_amount, max_token_amount, deadline_block,
                   gas_limit, gas_price):
     resp = contract.call(method="AddLiquidity",
                          params=[Contract.value_dict("token_address", "ByStr20", token_address),
@@ -165,7 +169,8 @@ def add_liquidity(contract, token_address, min_contribution_amount, max_token_am
                                  Contract.value_dict("deadline_block", "BNum", deadline_block)
                                  ],
                          gas_limit=gas_limit,
-                         gas_price=gas_price
+                         gas_price=gas_price,
+                         amount=zil_amount
                          )
     pprint(resp)
     pprint(contract.last_receipt)
@@ -189,15 +194,15 @@ def remove_liquidity(contract, token_address, contribution_amount, min_zil_amoun
 
 
 
-def limit_order(contract,
-                min_zils_per_token,
-                token_bech32,
-                token_amount_to_sell = None,
-                recipient_address_bech32 = None,
-                allowed_slippage_per = 2/100,
-                gas_limit=5000,
-                gas_price=Qa(2000000000)
-                ):
+def limit_swap(contract,
+               min_zils_per_token,
+               token_bech32,
+               token_amount_to_sell = None,
+               recipient_address_bech32 = None,
+               allowed_slippage_per = 2/100,
+               gas_limit=5000,
+               gas_price=Qa(2000000000)
+               ):
     if recipient_address_bech32 is None:
         recipient_address_bech32 = contract.account.bech32_address
     if token_amount_to_sell is None:
@@ -230,5 +235,49 @@ def limit_order(contract,
                                             gas_limit, gas_price)
 
 
+def limit_remove_liquidity(contract,
+                           token_bech32,
+                           liquidity_to_remove_per,
+                           min_zils_per_token,
+                           allowed_slippage_per = 4/100,
+                           gas_limit=5000,
+                           gas_price=Qa(2000000000)
+                           ):
+    # token_to_remove = 1
+    user_wallet_bech32 = contract.account.bech32_address
+    user_share_per, user_token_pool_zil_bal, user_token_pool_token_bal, user_token_pool_contribution = \
+        get_user_token_pool_contri(contract, token_bech32, user_wallet_bech32)
+    # liquidity_to_remove_per = token_to_remove/user_token_pool_token_bal
+    min_token_amount = liquidity_to_remove_per * user_token_pool_token_bal
+    if min_token_amount > user_token_pool_token_bal:
+        min_token_amount = user_token_pool_token_bal
+        min_token_amount = min_token_amount - (allowed_slippage_per * min_token_amount)
+    # min_token_amount = 1
+    token_dec_divisor = zutils.get_token_dec_divisor(zutils.load_contract(token_bech32))
+    min_token_amount = min_token_amount - (allowed_slippage_per * min_token_amount)
+    min_token_amount_with_dec = min_token_amount * token_dec_divisor
+    min_token_amount_with_dec = str(round(min_token_amount_with_dec))
+    print("Min token (with decimals) to remove  :", min_token_amount_with_dec)
 
+    min_zil_amount = liquidity_to_remove_per * user_token_pool_zil_bal
+    min_zil_amount = min_zil_amount - (allowed_slippage_per * min_zil_amount)
+    min_zil_amount = str(Zil(min_zil_amount).toQa())
+    print("Min zil (with decimals) to remove :", min_zil_amount)
 
+    contribution_amount = liquidity_to_remove_per * user_token_pool_contribution
+    contribution_amount = str(round(contribution_amount))
+    print("Contribution (with decimals) to remove :", contribution_amount)
+    print("Min tokens to remove :", min_token_amount)
+
+    price_per_token = get_token_zil_price(contract,
+                                          token_bech32,
+                                          min_token_amount)
+
+    print("Current price per unit: ", price_per_token)
+    if price_per_token < min_zils_per_token:
+        return "Fail", "Current price lower than target minimum price, before slippage"
+
+    deadline_block = str(zutils.get_current_block() + CNSTS.DEADLINE_IN_BLOCKS)
+    return "Success", remove_liquidity(contract, zutils.to_base16_add(token_bech32),
+                                       contribution_amount, min_zil_amount, min_token_amount_with_dec,
+                                       deadline_block, gas_limit, gas_price)

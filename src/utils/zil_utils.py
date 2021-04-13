@@ -2,10 +2,14 @@ import getpass
 import src.CONSTANTS as CNSTS
 import math
 import requests
+import src.CONF as CONF
+import os
 import random
 from src.pyzil_mod.account import Account as ModAccount
 from pyzil.crypto import zilkey
 from pyzil.contract import Contract
+from pyzil.zilliqa import chain
+from dotenv import load_dotenv
 from pyzil.zilliqa.api import ZilliqaAPI, APIError
 
 
@@ -15,6 +19,22 @@ def get_zil_api_url():
 
 api = ZilliqaAPI(get_zil_api_url())
 link = CNSTS.ZIL_SUPPLY_URL
+
+
+def set_zil_api(last_api_url=CNSTS.ZILLIQA_API_URL):
+    api_url = get_zil_api_url()
+    while last_api_url==api_url:
+        api_url = get_zil_api_url()
+    print(api_url)
+    vMainNet = chain.BlockChain(api_url, version=65537, network_id=1)
+    chain.set_active_chain(vMainNet)
+    return api_url
+
+
+def set_env():
+    load_dotenv()
+    personal_env = os.getenv(CONF.PERSONAL_ENV_FILE)
+    load_dotenv(personal_env)
 
 
 def address0x(add):
