@@ -1,0 +1,112 @@
+scilla_version 0
+
+import BoolUtils IntUtils
+
+library LosslessLottery
+
+let zero: Uint128 = Uint128 0
+let one: Uint128 = Uint128 1
+let successful_deposit_code: Uint32 = Uint32 -1
+let insufficient_balance_code: Uint32 = Uint32 -2
+let user_not_present_code: Uint32 = Uint32 -3
+let fund_withdraw_success_code: Uint32 = Uint32 -4
+
+let get_user_amount = 
+    fun (bs : Map ByStr20 Uint128) =>
+    fun (sender : ByStr20) =>
+        builtin get bs sender
+
+let one_msg = fun(msg: Message) =>
+    let nil_msg = Nil {Message} in
+    Cons {Message} msg nil_msg
+
+let two_msgs =
+    fun (msg1 : Message) =>
+    fun (msg2 : Message) =>
+        let msgs_tmp = one_msg msg2 in
+        Cons {Message} msg1 msgs_tmp
+
+contract LosslessLottery(owner: ByStr20, 
+                         owner_percent: Uint128)
+
+field backers : Map ByStr20 Uint128 = Emp ByStr20 Uint128
+
+transition PoolIn()
+    bs <- backers;
+    user_balance = get_user_amount bs _sender;
+    accept;
+    match user_balance with
+    | None =>
+        backer[_sender] := _amount;
+        msg = { _tag: "Funds Added";
+                _recipient: _sender;
+                _amount: zero;
+                code: successful_deposit_code
+            };
+        msgs = one_msg msg;
+        e = {
+            _eventname: "Funds Added";
+            user: _sender;
+            amount: _amount;
+            code: successful_deposit_code
+            };
+        
+        send msgs;
+        event e
+
+    | Some sender_amt =>
+        new_sender_amt = builtin add sender_amt _amount;
+        backers[_sender] := new_sender_amt;
+        msg = { _tag: "Funds Added";
+                _recipient: _sender;
+                _amount: zero;
+                code: successful_deposit_code
+            };
+        msgs = one_msg msg;
+        e = {
+            _eventname: "Funds Added";
+            user: _sender;
+            amount: _amount;
+            code: successful_deposit_code
+            };
+        
+        send msgs;
+        event e
+end
+
+transition PoolOut(amount: Uint128)
+    bs <- backers;
+    user_balance = get_user_amount bs _sender;
+
+    match user_balance with
+    | None =>
+        user_not_present_error ={
+                                _eventname: "User Not Present";
+                                user: _sender;
+                                code: user_presence
+                                };
+        event user_not_present_error
+    | Some user_balance_value =>
+        balance_diff = builtin sub user_balance_value amount;
+        check_sufficient_balance = builtin lt balance_diff zero;
+        match check_sufficient_balance with
+        | True =>
+            insufficient_balance_error ={
+                                        _eventname: "Insufficient Balance";
+                                        user: _sender;
+                                        code: insufficient_balance_code
+                                        };
+            event insufficient_balance_error
+        | False =>
+            backers[_sender] := balance_diff;
+            msg = {
+                    _tag: "Funds Withdrawn";
+                    _recipient: _sender;
+                    _amount: amount;
+                    code: fund_withdraw_success_code
+            };
+            msgs = one_msg msg;
+            send msgs
+        end
+    end
+end
