@@ -6,10 +6,12 @@ library LosslessLottery
 
 let zero: Uint128 = Uint128 0
 let one: Uint128 = Uint128 1
+let ten: Uint128 = Uint128 10
 let successful_deposit_code: Uint32 = Uint32 -1
 let insufficient_balance_code: Uint32 = Uint32 -2
 let user_not_present_code: Uint32 = Uint32 -3
 let fund_withdraw_success_code: Uint32 = Uint32 -4
+let staking_contract_adress_update: Uint32 = Uint32 -5
 
 let get_user_amount = 
     fun (bs : Map ByStr20 Uint128) =>
@@ -30,6 +32,21 @@ contract LosslessLottery(owner: ByStr20,
                          owner_percent: Uint128)
 
 field backers : Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field staking_contract: ByStr20 = 0x62a9d5d611cdcae8d78005f31635898330e06b93
+field staking_contract_stake_transition = "DelegateStake"
+
+transition update_staking_contract(staking_contract_address: ByStr20, staking_contract_delegate_transition: String)
+    is_owner = builtin eq _sender owner;
+    match is_owner with
+    | True =>
+        staking_contract := staking_contract_address;
+        staking_contract_stake_transition := staking_contract_delegate_transition;
+        e = {
+            _eventname: "Staking contract address updated";
+            code: staking_contract_adress_update
+        };
+        event e
+end
 
 transition PoolIn()
     bs <- backers;
@@ -109,4 +126,12 @@ transition PoolOut(amount: Uint128)
             send msgs
         end
     end
+end
+
+transition stake_zil()
+    msg = {
+        _recipient: staking_contract;
+        _amount: ten;
+        _tag: "DelegateStake"
+    }
 end
