@@ -1,6 +1,6 @@
 scilla_version 0
 
-import BoolUtils IntUtils PairUtils
+import BoolUtils IntUtils PairUtils ListUtils
 
 library LosslessLottery
 
@@ -28,37 +28,41 @@ let snd_user_yield =
     let snd_yield = @snd ByStr20 Uint128 in
     snd_yield pair
 
-let fst_list : forall 'A. List 'A -> List 'A = 
-    tfun 'A =>
-    tfun 'B =>
-    tfun 'C =>
-    fun (l: List 'A) =>
-        let foldr = @list_foldr 'A (List 'A) in
-        let init = Nil {'A} in
-        let iter = 
-            fun (h : 'A) => 
-            fun (z : List 'A) =>
-                let fst_fetch = @fst 'B 'C in
-                let h1 = fst_fetch h in
-                Cons {'A} h1 z in
-        foldr iter init
+(*let fst_list : forall 'A. forall 'B. List Pair ('A)('B) -> List 'A = *)
+(*    tfun 'A =>*)
+(*    tfun 'B =>*)
+(*    fun (l: List (Pair ('A)('B))) =>*)
+(*        let foldr = @list_foldr (Pair('A)('B)) (List 'A) in*)
+(*        let init = Nil {'A} in*)
+(*        let iter = *)
+(*            fun (h : Pair('A)('B)) => *)
+(*            fun (z : List 'A) =>*)
+(*                let fst_fetch = @fst 'A 'B in*)
+(*                let h1 = fst_fetch h in*)
+(*                Cons {'A} h1 z in*)
+(*        foldr iter init*)
+(*        *)
+(*let snd_list : forall 'A. List 'A -> List 'A = *)
+(*    tfun 'A =>*)
+(*    fun (l: List 'A) =>*)
+(*        let foldr = @list_foldr 'A (List 'A) in*)
+(*        let init = Nil {'A} in*)
+(*        let iter = *)
+(*            fun (h : 'A) => *)
+(*            fun (z : List 'A) =>*)
+(*                let snd_fetch = @snd ByStr20 Uint128 in*)
+(*                let h1 = snd_fetch h in*)
+(*                Cons {'A} h1 z in*)
+(*        foldr iter init*)
         
-let snd_list : forall 'A. List 'A -> List 'A = 
-    tfun 'A =>
-    fun (l: List 'A) =>
-        let foldr = @list_foldr 'A (List 'A) in
-        let init = Nil {'A} in
-        let iter = 
-            fun (h : 'A) => 
-            fun (z : List 'A) =>
-                let snd_fetch = @snd ByStr20 Uint128 in
-                let h1 = snd_fetch h in
-                Cons {'A} h1 z in
-        foldr iter init
-        
-let snd_list_list = 
-  fun (pair: Pair List List) =>
-    let snd_list = @snd List List in
+let fst_list = 
+  fun (pair: Pair (List ByStr20) (List Uint128)) =>
+    let snd_list = @fst (List ByStr20) (List Uint128) in
+    snd_list pair
+
+let snd_list = 
+  fun (pair: Pair (List ByStr20) (List Uint128)) =>
+    let snd_list = @snd (List ByStr20) (List Uint128) in
     snd_list pair
 
   
@@ -77,29 +81,53 @@ let two_msgs =
         let msgs_tmp = one_msg msg2 in
         Cons {Message} msg1 msgs_tmp
 
-let list_sum: forall 'A. List 'A -> 'A =
-    tfun 'A =>
-    fun(l: List 'A) =>
-        let foldl = @list_foldl 'A Uint128 in
-        let init_sum = Uint128 0 in
-        let iter = 
-            fun(z: 'A) =>
-            fun(h: 'A) =>
-            builtin add h z in
-        foldl init_sum l
+(*let list_length : forall 'A. List 'A -> Uint32 =*)
+(*    tfun 'A =>*)
+(*      let foldl = @list_foldl 'A Uint32 in*)
+(*      let one = Uint32 1 in*)
+(*      let iter = fun (z : Uint32) => fun (h : 'A) =>*)
+(*        builtin add one z in*)
+(*      let init = Uint32 0 in*)
+(*      foldl iter init*)
 
-let list_mul : forall 'A. List 'A -> 'A -> List 'A = 
+let list_sum: forall 'A. List Uint128 -> Uint128 =
     tfun 'A =>
-    fun (l: List 'A) =>
+      let foldl = @list_foldl Uint128 Uint128 in
+      let init_sum = Uint128 0 in
+      let iter = 
+          fun(z: Uint128) =>
+          fun(h: Uint128) =>
+          builtin add h z in
+      foldl iter init_sum
+
+let list_mul : forall 'A. Uint128 -> List Uint128 -> List Uint128 = 
+    tfun 'A =>
     fun(const: Uint128) =>
-        let foldr = @list_foldr 'A (List 'A) in
-        let init = Nil {'A} in
+        let foldr = @list_foldr Uint128 (List Uint128) in
+        let init = Nil {Uint128} in
         let iter = 
-            fun (h : 'A) => 
-            fun (z : List 'A) =>
+            fun (h : Uint128) => 
+            fun (z : List Uint128) =>
                 let h1 = builtin mul h const in
-                Cons {'A} h1 z in
+                Cons {Uint128} h1 z in
         foldr iter init
+
+let list_div : forall 'A. Uint128 -> List Uint128 -> List Uint128 = 
+    tfun 'A =>
+    fun(const: Uint128) =>
+        let foldr = @list_foldr Uint128 (List Uint128) in
+        let init = Nil {Uint128} in
+        let iter = 
+            fun (h : Uint128) => 
+            fun (z : List Uint128) =>
+                let h1 = builtin div h const in
+                Cons {Uint128} h1 z in
+        foldr iter init
+        
+let listpair_to_map: forall 'A. forall 'B. List Pair('A)('B) -> Map 'A 'B =
+  tfun 'A =>
+  tfun 'B =>
+  let foldr = @list_foldr Pair('A)('B) Map
 
 
 contract LosslessLottery(owner: ByStr20, 
@@ -133,11 +161,12 @@ end
 
 transition OwnerWithdraw()
     is_owner = builtin eq _sender owner;
+    bal <- _balance;
     match is_owner with
     |   True =>
         msg = {
             _tag: "Withdrawal by Owner";
-            _amount: _balance;
+            _amount: bal;
             _recipient: _sender;
             code: owner_withdrawal
         };
@@ -145,7 +174,7 @@ transition OwnerWithdraw()
         send msgs
     | False =>
         e = {
-            _tag: "Not Owner";
+            _eventname: "Not Owner";
             code: not_owner_code
         };
         event e
@@ -248,7 +277,7 @@ transition stake_zil(ssn_addr: ByStr20)
         send msgs
     | False =>
         e = {
-            _tag: "Not Owner";
+            _eventname: "Not Owner";
             code: not_owner_code
         };
         event e
@@ -268,18 +297,21 @@ procedure calcUserYield(yields: Uint128)
     empty_map = Emp ByStr20 Uint128;
     user_yields := empty_map;
     user_amount <- backers;
-    user_map_to_pairlist = builtin to_list user_amount; (**This will be a list of pairs ByStr20 Uint128**)
-    first_list = @fst_list Pair ByStr20 Uint128;
-    second_list = @snd_list Pair ByStr20 Uint128;
-    users = first_list user_map_to_pairlist; (**Fetch the user list**)
-    amounts = second_list user_map_to_pairlist; (**Fetch the amount list**)
+    user_map_to_listpair = builtin to_list user_amount; (**This will be a list of pairs ByStr20 Uint128**)
+    listpair_to_pairlist = @list_unzip ByStr20 Uint128;
+    user_map_to_pairlist = listpair_to_pairlist user_map_to_listpair;
+(*    first_list = fst_list user_map_to_pairlist;*)
+(*    second_list = snd_list ByStr20 Uint128;*)
+    
+    users = fst_list user_map_to_pairlist; (**Fetch the user list**)
+    amounts = snd_list user_map_to_pairlist; (**Fetch the amount list**)
     list_sum_function = @list_sum Uint128; 
     list_mul_function = @list_mul Uint128;
     list_div_function = @list_div Uint128;
 
-    total_amount = list_sum_function amount;
-    multiplied_yield = list_mul_function amounts yields;
-    distributed_yields = list_div_function multiplied_yield total_amount;
+    total_amount = list_sum_function amounts;
+    multiplied_yield = list_mul_function yields amounts;
+    distributed_yields = list_div_function total_amount multiplied_yield;
 
     list_zipper = @list_zip ByStr20 Uint128;
     user_yields_listpair = list_zipper users distributed_yields;
@@ -288,7 +320,8 @@ procedure calcUserYield(yields: Uint128)
 end
 
 transition AddFunds()
-    is_yield_contract = builtin eq _sender staking_contract;
+    contract_address <- staking_contract;
+    is_yield_contract = builtin eq _sender contract_address;
     match is_yield_contract with
     |   False =>
             e = {
@@ -309,6 +342,7 @@ end
 
 transition compound_yield()
   is_owner = builtin eq _sender owner;
+  contract_address <- staking_contract;
   match is_owner with
     |   False =>
             e = {
@@ -319,10 +353,10 @@ transition compound_yield()
     |   True =>
             current_balance <- _balance;
             msg = {
-                  _recipient: staking_contract_address;
+                  _recipient: contract_address;
                   _amount: zero;
                   _tag: "WithDrawStakeReward";
-                  ssn_addr: ssn_addr
+                  ssn_addr: _sender
             };
             msgs = one_msg msg;
             send msgs;
