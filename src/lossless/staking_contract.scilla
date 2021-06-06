@@ -6,6 +6,7 @@ library LosslessLottery
 
 let zero: Uint128 = Uint128 0
 let one: Uint128 = Uint128 1
+let one_zil: Uint128 = Uint128 1000000000000
 let ten: Uint128 = Uint128 10
 let hundred: Uint128 = Uint128 100
 let successful_deposit_code: Int32 = Int32 -1
@@ -124,10 +125,20 @@ let list_div : forall 'A. Uint128 -> List Uint128 -> List Uint128 =
                 Cons {Uint128} h1 z in
         foldr iter init
         
-let listpair_to_map: forall 'A. forall 'B. List Pair('A)('B) -> Map 'A 'B =
+let listpair_to_map: forall 'A. forall 'B. List (Pair ByStr20 Uint128) -> Map ByStr20 Uint128 =
   tfun 'A =>
   tfun 'B =>
-  let foldr = @list_foldr Pair('A)('B) Map
+  let foldr = @list_foldr (Pair ByStr20 Uint128) (Map ByStr20 Uint128) in
+  let init = Emp ByStr20 Uint128 in
+  let iter = 
+    fun(h: Pair(ByStr20)(Uint128)) =>
+    fun(z: Map ByStr20 Uint128) =>
+      let first = @fst ByStr20 Uint128 in
+      let second = @snd ByStr20 Uint128 in
+      let key_element = first h in
+      let value_element = second h in
+      builtin put z key_element value_element in
+    foldr iter init
 
 
 contract LosslessLottery(owner: ByStr20, 
@@ -139,6 +150,8 @@ field yield_contract: ByStr20 = 0x79d75c7ac509ff589db5e3d60e40a6b90d3c200e
 field staking_contract_stake_transition: String = "DelegateStake"
 field user_yields: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field current_yield: Uint128 = Uint128 0
+field prev_balance: Uint128 = Uint128 0
+field curr_balance: Uint128= Uint128 0
 
 transition update_staking_contract(staking_contract_address: ByStr20)
     is_owner = builtin eq _sender owner;
@@ -269,7 +282,7 @@ transition stake_zil(ssn_addr: ByStr20)
     | True =>
         msg = {
             _recipient: staking_contract_address;
-            _amount: one;
+            _amount: one_zil;
             _tag: "DelegateStake";
             ssn_addr: ssn_addr
         };
@@ -286,8 +299,10 @@ end
 
 procedure updateUserYield(user_yield_pair: Pair ByStr20 Uint128)
 (* statements go below *)
-    user = fst_user_yield user_yield;
-    yield = snd_user_yield user_yield;
+    find_user = @fst ByStr20 Uint128;
+    find_yield = @snd ByStr20 Uint128;
+    user = find_user user_yield_pair;
+    yield = find_yield user_yield_pair;
     user_yields[user] := yield
 end
 
@@ -340,7 +355,7 @@ transition AddFunds()
 
 end
 
-transition compound_yield()
+transition fetch_yield()
   is_owner = builtin eq _sender owner;
   contract_address <- staking_contract;
   match is_owner with
@@ -352,6 +367,7 @@ transition compound_yield()
             event e
     |   True =>
             current_balance <- _balance;
+            prev_balance := current_balance;
             msg = {
                   _recipient: contract_address;
                   _amount: zero;
@@ -359,12 +375,29 @@ transition compound_yield()
                   ssn_addr: _sender
             };
             msgs = one_msg msg;
-            send msgs;
+            send msgs
+    end
+end
+
+transition compound_yield()
+  is_owner = builtin eq _sender owner;
+  contract_address <- staking_contract;
+  match is_owner with
+    |   False =>
+            e = {
+                _eventname: "Not Owner Error for Yield";
+                code: not_owner_code
+            };
+            event e
+    |   True =>
+            current_balance <- prev_balance;
             new_balance <- _balance;
+            curr_balance := new_balance;
             yield = builtin sub new_balance current_balance;
+            current_yield := yield;
             owner_cut_init = builtin mul yield owner_percent;
             owner_cut = builtin div owner_cut_init hundred;
-            user_yields = builtin sub yield owner_cut;
-            calcUserYield user_yields
+            users_yield = builtin sub yield owner_cut;
+            calcUserYield users_yield
     end
 end
