@@ -6,6 +6,7 @@ library LosslessLottery
 
 let zero: Uint128 = Uint128 0
 let one: Uint128 = Uint128 1
+let two: Uint128 = Uint128 2
 let one_zil: Uint128 = Uint128 1000000000000
 let ten: Uint128 = Uint128 10
 let hundred: Uint128 = Uint128 100
@@ -19,6 +20,17 @@ let owner_withdrawal: Int32 = Int32 -7
 let not_yield_contract_error: Int32 = Int32 -8
 let yield_accepted: Int32 = Int32 -9
 let percentages_added: Int32 = Int32 -10
+let no_user: Int32 = Int32 -11
+
+let fst_int_list = 
+    fun(pair: Pair Uint128 (List Uint128)) =>
+        let fst_int = @fst Uint128 (List Uint128) in
+        fst_int pair
+
+let snd_int_list = 
+    fun(pair: Pair Uint128 (List Uint128)) =>
+        let snd_list = @snd Uint128 (List Uint128) in
+        snd_list pair
 
 let fst_user_yield = 
   fun (pair: Pair ByStr20 Uint128) =>
@@ -76,6 +88,23 @@ let list_mul : forall 'A. Uint128 -> List Uint128 -> List Uint128 =
             fun (z : List Uint128) =>
                 let h1 = builtin mul h const in
                 Cons {Uint128} h1 z in
+        foldr iter init
+
+let range_sum: forall 'A. Uint128 -> List Uint128 -> Pair(Uint128 (List Uint128)) = 
+    tfun 'A =>
+    fun(const: Uint128) =>
+        let foldr = @list_foldr Pair(Uint128 (List Uint128)) (List Uint128) in
+        let init_list = Nil {Uint128} in
+        let init_sum = const in
+        let init = Pair {Uint128 (List Uint128)} init_sum init_list in
+        let iter =
+            fun(h: Uint128) =>
+            fun(z: Pair(Uint128 (List Uint128))) =>
+                let current_sum = fst_int_list z in
+                let current_list = snd_int_list z in
+                let h1 = builtin add h current_sum in
+                let z1 = Cons h1 z in
+                Pair{Uint128 (List Uint128)} h1 z1
         foldr iter init
 
 let list_div : forall 'A. Uint128 -> List Uint128 -> List Uint128 = 
@@ -394,6 +423,46 @@ transition compound_yield()
             owner_cut = builtin div owner_cut_init hundred;
             users_yield = builtin sub yield owner_cut;
             calcUserYield users_yield;
-            backers_prev_deposit := backers_current_deposit
+            backers_prev_deposit := backers_current_deposit;
+    end
+end
+
+transition lottery()
+    is_owner = builtin eq _sender owner;
+    contract_address <- staking_contract;
+    match is_owner with
+    |   False =>
+            e = {
+                _eventname: "Not Owner Error for Yield";
+                code: not_owner_code
+            };
+            event e
+    |   True =>
+            yield <- current_yield;
+            owner_cut_init = builtin mul yield owner_percent;
+            owner_cut = builtin div owner_cut_init hundred;
+            users_yield = builtin sub yield owner_cut;
+            calcUserYield users_yield;
+            backers_prev_deposit := backers_current_deposit;
+
+            user_lottery_contri <- user_lottery_contribution;
+            user_map_to_listpair = builtin to_list user_lottery_contri; (**This will be a list of pairs ByStr20 Uint128**)
+            listpair_to_pairlist = @list_unzip ByStr20 Uint128;
+            user_map_to_pairlist = listpair_to_pairlist user_map_to_listpair;
+            users = fst_list user_map_to_pairlist; (**Fetch the user list**)
+            amounts = snd_list user_map_to_pairlist; (**Fetch the amount list**)
+            range_sum_function = @range_sum Uint128;
+            end_idx_list = range_sum_function zero amounts;
+            list_head_function = @list_head Uint128;
+            start_idx_init = list_head_function amounts;
+            match start_idx_init with
+            | None =>
+                e = {
+                    _eventname: "No User in the lottery";
+                    code: no_user;
+                };
+                event e
+            | Some start_idx =>
+                start_idx_mult = builtin mul 
     end
 end
