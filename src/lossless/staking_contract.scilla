@@ -22,6 +22,27 @@ let yield_accepted: Int32 = Int32 -9
 let percentages_added: Int32 = Int32 -10
 let no_user: Int32 = Int32 -11
 
+let fst_int_int = 
+  fun(pair: Pair Uint128 Uint128) =>
+  let fst_int = @fst Uint128 Uint128 in
+  fst_int pair
+
+let snd_int_int = 
+  fun(pair: Pair Uint128 Uint128) =>
+  let snd_int = @snd Uint128 Uint128 in
+  snd_int pair
+  
+let fst_pair_bystr_pairInt = 
+  fun (pair: Pair ByStr20 (Pair Uint128 Uint128)) =>
+    let fst_int = @fst ByStr20 (Pair Uint128 Uint128) in
+    fst_int pair
+
+let snd_pair_bystr_pairInt = 
+  fun (pair: Pair ByStr20 (Pair Uint128 Uint128)) =>
+    let snd_int = @snd ByStr20 (Pair Uint128 Uint128) in
+    snd_int pair
+    
+    
 let fst_int_list = 
     fun(pair: Pair Uint128 (List Uint128)) =>
         let fst_int = @fst Uint128 (List Uint128) in
@@ -90,21 +111,21 @@ let list_mul : forall 'A. Uint128 -> List Uint128 -> List Uint128 =
                 Cons {Uint128} h1 z in
         foldr iter init
 
-let range_sum: forall 'A. Uint128 -> List Uint128 -> Pair(Uint128 (List Uint128)) = 
+let range_sum: forall 'A. Uint128 -> List Uint128 -> Pair(Uint128) (List Uint128) = 
     tfun 'A =>
     fun(const: Uint128) =>
-        let foldr = @list_foldr Pair(Uint128 (List Uint128)) (List Uint128) in
+        let foldr = @list_foldr (Pair(Uint128) (List Uint128)) (List Uint128) in
         let init_list = Nil {Uint128} in
         let init_sum = const in
         let init = Pair {Uint128 (List Uint128)} init_sum init_list in
         let iter =
             fun(h: Uint128) =>
-            fun(z: Pair(Uint128 (List Uint128))) =>
+            fun(z: Pair(Uint128) (List Uint128)) =>
                 let current_sum = fst_int_list z in
                 let current_list = snd_int_list z in
                 let h1 = builtin add h current_sum in
                 let z1 = Cons h1 z in
-                Pair{Uint128 (List Uint128)} h1 z1
+                Pair{(Uint128) (List Uint128)} h1 z1 in
         foldr iter init
 
 let list_div : forall 'A. Uint128 -> List Uint128 -> List Uint128 = 
@@ -152,7 +173,7 @@ field prev_balance: Uint128 = Uint128 0
 field curr_balance: Uint128= Uint128 0
 field total_restaking_amount: Uint128 = Uint128 0
 field lottery_winner: ByStr20 = 0x79d75c7ac509ff589db5e3d60e40a6b90d3c200e
-field random_seed: Uint128 = 0 Uint128
+field random_seed: Uint128 = Uint128 0
 
 transition update_staking_contract(staking_contract_address: ByStr20)
     is_owner = builtin eq _sender owner;
@@ -240,13 +261,13 @@ transition PoolIn()
 end
 
 transition update_percentages(interest_percent: Uint128, lottery_percent: Uint128)
-    backers_p_lottery[_sender] := lottery_precent;
+    backers_p_lottery[_sender] := lottery_percent;
     backers_p_interest[_sender] := interest_percent;
     e = {
             _eventname: percentages_added;
             user: _sender;
             interestPerecent: interest_percent;
-            lotteryPercent: lottery_percent;
+            lotteryPercent: lottery_percent
     };
     event e
 end
@@ -357,7 +378,8 @@ procedure calcUserYield(yields: Uint128)
     user_restaking_to_listpair = builtin to_list user_interests;
     user_restaking_to_pairlist = listpair_to_pairlist user_restaking_to_listpair;
     restaking_amounts = snd_list user_restaking_to_pairlist;
-    restaking_amount = @list_sum restaking_amounts;
+    list_sum_function = @list_sum Uint128;
+    restaking_amount = list_sum_function restaking_amounts;
     total_restaking_amount := restaking_amount
 end
 
@@ -373,12 +395,12 @@ transition AddFunds()
             event e
     |   True =>
             accept;
-            yield_amount <- _amount;
-            current_yield := yield_amount;
+(*            yield_amount <- _amount;*)
+            current_yield := _amount;
             e = {
                 _eventname: "Yield Accepted";
                 _code: yield_accepted;
-                yield_amount: current_yield
+                yield_amount: _amount
             };
             event e
     end
@@ -425,14 +447,15 @@ transition compound_yield()
             owner_cut = builtin div owner_cut_init hundred;
             users_yield = builtin sub yield owner_cut;
             calcUserYield users_yield;
-            backers_prev_deposit := backers_current_deposit;
+            backers_prev_deposit := backers_current_deposit
     end
 end
 
-procedure assignWinner(user_start_end: Pair ByStr20 Pair(Uint128 Uint128)))
-    user
-    start_idx
-    end_idx
+procedure assignWinner(user_start_end: Pair ByStr20 Pair(Uint128) (Uint128))
+    user = fst_pair_bystr_pairInt user_start_end;
+    start_end_idx = snd_pair_bystr_pairInt user_start_end;
+    start_idx = fst_int_int start_end_idx;
+    end_idx = snd_int_int start_end_idx;
     is_start = int128_gt random_seed start_idx;
     is_end = int128_gt end_idx random_seed;
 
@@ -441,10 +464,13 @@ procedure assignWinner(user_start_end: Pair ByStr20 Pair(Uint128 Uint128)))
             match is_end with
             | True =>
                 lottery_winner := user;
-                e = {_eventname: "Lottery winner", winner: user};
-                event e;
+                e = {_eventname: "Lottery winner"; winner: user};
+                event e
+            end
+    end
 end
-transition lottery(random_seed: Uint128)
+
+transition lottery(rand_seed: Uint128)
     is_owner = builtin eq _sender owner;
     contract_address <- staking_contract;
     match is_owner with
@@ -469,16 +495,22 @@ transition lottery(random_seed: Uint128)
             users = fst_list user_map_to_pairlist; (**Fetch the user list**)
             amounts = snd_list user_map_to_pairlist; (**Fetch the amount list**)
             range_sum_function = @range_sum Uint128;
-            end_idx_list = range_sum_function zero amounts;
+            sum_end_idx_list = range_sum_function zero amounts;
+            sum = fst_list_int sum_end_idx_list;
+            end_idx_list = snd_list_int_sum_end_idx_list;
             list_zip_diff = @list_zip_with Uint32 Uint128 Uint128;
             start_idx_list = let diff = fun (a: Uint128) => fun(b: Uint128) => builtin sub a b in (* diff = a - b *)
                 list_zip_diff end_idx_list amounts;
+
             list_zip_pair = @list_zip Uint128 Uint128;
-            list_zip_user_range = @list_zip ByStr20 Pair(Uint128 Uint128);
+            list_zip_user_range = @list_zip ByStr20 Pair(Uint128) (Uint128);
             range_list = list_zip_pair start_idx_list end_idx_list;
             user_range_list = list_zip_user_range users range_lists;
 
-            forall user_range_list assignWinner;            
+            seed = builtin rem rand_seed sum;
+            random_seed := seed;
+
+            forall user_range_list assignWinner        
             
     end
 end
