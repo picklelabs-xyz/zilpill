@@ -151,6 +151,8 @@ field current_yield: Uint128 = Uint128 0
 field prev_balance: Uint128 = Uint128 0
 field curr_balance: Uint128= Uint128 0
 field total_restaking_amount: Uint128 = Uint128 0
+field lottery_winner: ByStr20 = 0x79d75c7ac509ff589db5e3d60e40a6b90d3c200e
+field random_seed: Uint128 = 0 Uint128
 
 transition update_staking_contract(staking_contract_address: ByStr20)
     is_owner = builtin eq _sender owner;
@@ -427,7 +429,22 @@ transition compound_yield()
     end
 end
 
-transition lottery()
+procedure assignWinner(user_start_end: Pair ByStr20 Pair(Uint128 Uint128)))
+    user
+    start_idx
+    end_idx
+    is_start = int128_gt random_seed start_idx;
+    is_end = int128_gt end_idx random_seed;
+
+    match is_start with
+    | True =>
+            match is_end with
+            | True =>
+                lottery_winner := user;
+                e = {_eventname: "Lottery winner", winner: user};
+                event e;
+end
+transition lottery(random_seed: Uint128)
     is_owner = builtin eq _sender owner;
     contract_address <- staking_contract;
     match is_owner with
@@ -453,16 +470,15 @@ transition lottery()
             amounts = snd_list user_map_to_pairlist; (**Fetch the amount list**)
             range_sum_function = @range_sum Uint128;
             end_idx_list = range_sum_function zero amounts;
-            list_head_function = @list_head Uint128;
-            start_idx_init = list_head_function amounts;
-            match start_idx_init with
-            | None =>
-                e = {
-                    _eventname: "No User in the lottery";
-                    code: no_user;
-                };
-                event e
-            | Some start_idx =>
-                start_idx_mult = builtin mul 
+            list_zip_diff = @list_zip_with Uint32 Uint128 Uint128;
+            start_idx_list = let diff = fun (a: Uint128) => fun(b: Uint128) => builtin sub a b in (* diff = a - b *)
+                list_zip_diff end_idx_list amounts;
+            list_zip_pair = @list_zip Uint128 Uint128;
+            list_zip_user_range = @list_zip ByStr20 Pair(Uint128 Uint128);
+            range_list = list_zip_pair start_idx_list end_idx_list;
+            user_range_list = list_zip_user_range users range_lists;
+
+            forall user_range_list assignWinner;            
+            
     end
 end
