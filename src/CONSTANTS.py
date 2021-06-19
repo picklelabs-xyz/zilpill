@@ -25,8 +25,8 @@ ZIL_SUPPLY_URL = "https://stat.zilliqa.com/api/supply"
 # Contracts
 class CONTRACT:
     ZIL_SWAP_CONTRACT_ADD = "zil1hgg7k77vpgpwj3av7q7vv5dl4uvunmqqjzpv2w"
-    ZILLION_CONTRACT_PROXY_ADD = "zil1g029nmzsf36r99vupp4s43lhs40fsscx3jjpuy"
-    ZILLION_CONTRACT_ADD = "zil1k7qwsz2m3w595u29je0dvv4nka62c5wwrp8r8p"
+    ZILLION_CONTRACT_PROXY_ADD = "zil1v25at4s3eh9w34uqqhe3vdvfsvcwq6un3fupc2"
+    ZILLION_CONTRACT_ADD = "zil15lr86jwg937urdeayvtypvhy6pnp6d7p8n5z09"
     ZIL_CHESS_CONTRACT_ADD = "zil18m9qjcf2l22mhl4mxxxutcdprsw5xuclvhwglq"
 
 
