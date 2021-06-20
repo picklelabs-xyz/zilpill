@@ -158,7 +158,8 @@ let listpair_to_map: forall 'A. forall 'B. List (Pair ByStr20 Uint128) -> Map By
 
 
 contract LosslessLottery(owner: ByStr20, 
-                         owner_percent: Uint128)
+                         owner_compound_percent: Uint128,
+                         owner_lottery_percent: Uint128)
 
 field backers_current_deposit : Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field backers_prev_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
@@ -201,6 +202,21 @@ transition OwnerWithdraw()
     bal <- _balance;
     match is_owner with
     |   True =>
+        empty_map = Emp ByStr20 Uint128;
+        backers_current_deposit := empty_map;
+        backers_p_interest := empty_map;
+        backers_p_lottery := empty_map;
+        backers_prev_deposit := empty_map;
+        user_interests := empty_map;
+        user_lottery_deposit := empty_map;
+
+        curr_balance := zero;
+        current_yield := zero;
+        lottery_prize := zero;
+        prev_balance := zero;
+        random_seed := zero;
+        total_restaking_amount := zero;
+
         msg = {
             _tag: "Withdrawal by Owner";
             _amount: bal;
@@ -218,13 +234,16 @@ transition OwnerWithdraw()
     end
 end
 
-transition PoolIn()
+transition PoolIn(interest_percent: Uint128)
+    lottery_percent = builtin sub hundred interest_percent;
     bs <- backers_current_deposit;
     user_balance = get_user_amount bs _sender;
     accept;
     match user_balance with
     | None =>
         backers_current_deposit[_sender] := _amount;
+        backers_p_lottery[_sender] := lottery_percent;
+        backers_p_interest[_sender] := interest_percent;
         msg = { _tag: "Funds Added";
                 _recipient: _sender;
                 _amount: zero;
@@ -244,6 +263,8 @@ transition PoolIn()
     | Some sender_amt =>
         new_sender_amt = builtin add sender_amt _amount;
         backers_current_deposit[_sender] := new_sender_amt;
+        backers_p_lottery[_sender] := lottery_percent;
+        backers_p_interest[_sender] := interest_percent;
         msg = { _tag: "Funds Added";
                 _recipient: _sender;
                 _amount: zero;
@@ -262,7 +283,8 @@ transition PoolIn()
     end
 end
 
-transition update_percentages(interest_percent: Uint128, lottery_percent: Uint128)
+transition update_percentages(interest_percent: Uint128)
+    lottery_percent = builtin sub hundred interest_percent;
     backers_p_lottery[_sender] := lottery_percent;
     backers_p_interest[_sender] := interest_percent;
     e = {
@@ -350,8 +372,14 @@ procedure updateUserYield(user_yield_pair: Pair ByStr20 Uint128)
     
         interest_contribution_mul = builtin mul yield interest_p;
         interest_contribution = builtin div interest_contribution_mul hundred;
-        user_interests[user] := interest_contribution;
-        user_lottery_deposit[user] := lottery_contribution
+        user_balance <- backers_current_deposit[user];
+        match user_balance with
+        | Some balance =>
+          new_balance =  builtin add balance interest_contribution;
+          backers_current_deposit[user] := new_balance;
+          user_lottery_deposit[user] := lottery_contribution
+        | None=>
+        end
       | None =>
         e = {
           _eventname: "User not found";
@@ -464,7 +492,7 @@ transition compound_yield()
             event e
     |   True =>
             yield <- current_yield;
-            owner_cut_init = builtin mul yield owner_percent;
+            owner_cut_init = builtin mul yield owner_compound_percent;
             owner_cut = builtin div owner_cut_init hundred;
             users_yield = builtin sub yield owner_cut;
             calcUserYield users_yield;
@@ -507,7 +535,7 @@ transition lottery(rand_seed: Uint128)
             event e
     |   True =>
             yield <- current_yield;
-            owner_cut_init = builtin mul yield owner_percent;
+            owner_cut_init = builtin mul yield owner_lottery_percent;
             owner_cut = builtin div owner_cut_init hundred;
             users_yield = builtin sub yield owner_cut;
             calcUserYield users_yield;
