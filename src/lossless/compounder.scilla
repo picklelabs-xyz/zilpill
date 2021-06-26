@@ -1,0 +1,624 @@
+scilla_version 0
+
+import BoolUtils IntUtils PairUtils ListUtils
+
+library LosslessLottery
+
+let zero: Uint128 = Uint128 0
+let one: Uint128 = Uint128 1
+let two: Uint128 = Uint128 2
+let one_zil: Uint128 = Uint128 1000000000000
+let ten: Uint128 = Uint128 10
+let hundred: Uint128 = Uint128 100
+let successful_deposit_code: Int32 = Int32 -1
+let insufficient_balance_code: Int32 = Int32 -2
+let user_not_present_code: Int32 = Int32 -3
+let fund_withdraw_success_code: Int32 = Int32 -4
+let staking_contract_adress_update: Int32 = Int32 -5
+let not_owner_code: Int32 = Int32 -6
+let owner_withdrawal: Int32 = Int32 -7
+let not_yield_contract_error: Int32 = Int32 -8
+let yield_accepted: Int32 = Int32 -9
+let percentages_added: Int32 = Int32 -10
+let no_user: Int32 = Int32 -11
+
+let fst_int_int = 
+  fun(pair: Pair Uint128 Uint128) =>
+  let fst_int = @fst Uint128 Uint128 in
+  fst_int pair
+
+let snd_int_int = 
+  fun(pair: Pair Uint128 Uint128) =>
+  let snd_int = @snd Uint128 Uint128 in
+  snd_int pair
+  
+let fst_pair_bystr_pairInt = 
+  fun (pair: Pair ByStr20 (Pair Uint128 Uint128)) =>
+    let fst_int = @fst ByStr20 (Pair Uint128 Uint128) in
+    fst_int pair
+
+let snd_pair_bystr_pairInt = 
+  fun (pair: Pair ByStr20 (Pair Uint128 Uint128)) =>
+    let snd_int = @snd ByStr20 (Pair Uint128 Uint128) in
+    snd_int pair
+    
+    
+let fst_int_list = 
+    fun(pair: Pair Uint128 (List Uint128)) =>
+        let fst_int = @fst Uint128 (List Uint128) in
+        fst_int pair
+
+let snd_int_list = 
+    fun(pair: Pair Uint128 (List Uint128)) =>
+        let snd_list = @snd Uint128 (List Uint128) in
+        snd_list pair
+
+let fst_user_yield = 
+  fun (pair: Pair ByStr20 Uint128) =>
+    let fst_user = @fst ByStr20 Uint128 in
+    fst_user pair
+  
+let snd_user_yield = 
+  fun (pair: Pair ByStr20 Uint128) =>
+    let snd_yield = @snd ByStr20 Uint128 in
+    snd_yield pair
+        
+let fst_list = 
+  fun (pair: Pair (List ByStr20) (List Uint128)) =>
+    let snd_list = @fst (List ByStr20) (List Uint128) in
+    snd_list pair
+
+let snd_list = 
+  fun (pair: Pair (List ByStr20) (List Uint128)) =>
+    let snd_list = @snd (List ByStr20) (List Uint128) in
+    snd_list pair
+
+  
+let get_user_amount = 
+    fun (bs : Map ByStr20 Uint128) =>
+    fun (sender : ByStr20) =>
+        builtin get bs sender
+
+let one_msg = fun(msg: Message) =>
+    let nil_msg = Nil {Message} in
+    Cons {Message} msg nil_msg
+
+let two_msgs =
+    fun (msg1 : Message) =>
+    fun (msg2 : Message) =>
+        let msgs_tmp = one_msg msg2 in
+        Cons {Message} msg1 msgs_tmp
+
+let list_sum: forall 'A. List Uint128 -> Uint128 =
+    tfun 'A =>
+    fun(l: List Uint128) =>
+      let foldr = @list_foldr Uint128 Uint128 in
+      let init_sum = Uint128 0 in
+      let iter = 
+          fun(z: Uint128) =>
+          fun(h: Uint128) =>
+          builtin add h z in
+      foldr iter init_sum l
+
+let list_mul : forall 'A. Uint128 -> List Uint128 -> List Uint128 = 
+    tfun 'A =>
+    fun(const: Uint128) =>
+        let foldr = @list_foldr Uint128 (List Uint128) in
+        let init = Nil {Uint128} in
+        let iter = 
+            fun (h : Uint128) => 
+            fun (z : List Uint128) =>
+                let h1 = builtin mul h const in
+                Cons {Uint128} h1 z in
+        foldr iter init
+
+let range_sum: forall 'A. Uint128 -> List Uint128 -> Pair(Uint128) (List Uint128) = 
+    tfun 'A =>
+    fun(const: Uint128) =>
+        let foldr = @list_foldr Uint128 (Pair(Uint128) (List Uint128)) in
+        let init_list = Nil {Uint128} in
+        let init_sum = const in
+        let init = Pair {Uint128 (List Uint128)} init_sum init_list in
+        let iter =
+            fun(h: Uint128) =>
+            fun(z: Pair(Uint128) (List Uint128)) =>
+                let current_sum = fst_int_list z in
+                let current_list = snd_int_list z in
+                let h1 = builtin add h current_sum in
+                let new_list = Cons {Uint128} h1 current_list in
+                Pair{(Uint128) (List Uint128)} h1 new_list in
+        foldr iter init
+
+let list_div : forall 'A. Uint128 -> List Uint128 -> List Uint128 = 
+    tfun 'A =>
+    fun(const: Uint128) =>
+        let foldr = @list_foldr Uint128 (List Uint128) in
+        let init = Nil {Uint128} in
+        let iter = 
+            fun (h : Uint128) => 
+            fun (z : List Uint128) =>
+                let h1 = builtin div h const in
+                Cons {Uint128} h1 z in
+        foldr iter init
+        
+let listpair_to_map: forall 'A. forall 'B. List (Pair ByStr20 Uint128) -> Map ByStr20 Uint128 =
+  tfun 'A =>
+  tfun 'B =>
+  let foldr = @list_foldr (Pair ByStr20 Uint128) (Map ByStr20 Uint128) in
+  let init = Emp ByStr20 Uint128 in
+  let iter = 
+    fun(h: Pair(ByStr20)(Uint128)) =>
+    fun(z: Map ByStr20 Uint128) =>
+      let first = @fst ByStr20 Uint128 in
+      let second = @snd ByStr20 Uint128 in
+      let key_element = first h in
+      let value_element = second h in
+      builtin put z key_element value_element in
+    foldr iter init
+
+
+contract LosslessLottery(owner: ByStr20, 
+                         owner_compound_percent: Uint128,
+                         owner_lottery_percent: Uint128)
+
+field backers_current_deposit : Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field backers_prev_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field backers_p_lottery: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field backers_p_interest: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field staking_contract: ByStr20 = 0xfb7ba19013b3c1fc3c20da60d42fd3aca66f5195
+field yield_contract: ByStr20 = 0xfb7ba19013b3c1fc3c20da60d42fd3aca66f5195
+field ssn_addr: ByStr20 = 0xfb7ba19013b3c1fc3c20da60d42fd3aca66f5195
+field staking_contract_stake_transition: String = "DelegateStake"
+field user_interests: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field user_lottery_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field current_yield: Uint128 = Uint128 0
+field prev_balance: Uint128 = Uint128 0
+field curr_balance: Uint128= Uint128 0
+field total_restaking_amount: Uint128 = Uint128 0
+field lottery_winner: ByStr20 = 0xfb7ba19013b3c1fc3c20da60d42fd3aca66f5195
+field lottery_prize: Uint128 = Uint128 0
+field random_seed: Uint128 = Uint128 0
+field cs_amount: Uint128 = Uint128 0
+field round_number: Uint128 = Uint128 0
+
+transition update_staking_contract(staking_contract_address: ByStr20)
+    is_owner = builtin eq _sender owner;
+    match is_owner with
+    | True =>
+        staking_contract := staking_contract_address;
+        e = {
+            _eventname: "Staking contract address updated";
+            code: staking_contract_adress_update
+        };
+        event e
+    | False =>
+      e = {
+            _eventname: "Staking contract address updated";
+            code: not_owner_code
+        };
+      event e
+    end
+end
+
+transition OwnerWithdraw()
+    is_owner = builtin eq _sender owner;
+    bal <- _balance;
+    match is_owner with
+    |   True =>
+        empty_map = Emp ByStr20 Uint128;
+        backers_current_deposit := empty_map;
+        backers_p_interest := empty_map;
+        backers_p_lottery := empty_map;
+        backers_prev_deposit := empty_map;
+        user_interests := empty_map;
+        user_lottery_deposit := empty_map;
+
+        curr_balance := zero;
+        current_yield := zero;
+        lottery_prize := zero;
+        prev_balance := zero;
+        random_seed := zero;
+        round_number := zero;
+        total_restaking_amount := zero;
+
+        msg = {
+            _tag: "Withdrawal by Owner";
+            _amount: bal;
+            _recipient: _sender;
+            code: owner_withdrawal
+        };
+        msgs = one_msg msg;
+        send msgs
+    | False =>
+        e = {
+            _eventname: "Not Owner";
+            code: not_owner_code
+        };
+        event e
+    end
+end
+
+
+procedure PoolOutAssist(amount: Uint128, total_staked_amount: Uint128, current_staked_amount: Uint128)
+  remainder = builtin sub total_staked_amount current_staked_amount;
+  is_valid_amount = uint128_le amount total_staked_amount;
+  current_contract <- staking_contract;
+  match is_valid_amount with
+  |   True =>
+          is_amount_lt_rem = uint128_le amount remainder;
+          msg = {
+                  _tag: "WithDrawPrincipal";
+                  _amount: zero;
+                  _recipient: current_contract;
+                  receiver: _sender;
+                  amount: amount
+          };
+          msgs = one_msg msg;
+          send msgs;
+          match is_amount_lt_rem with
+          |   True =>
+              new_amount = builtin sub total_staked_amount amount;
+              backers_current_deposit[_sender] := new_amount
+          |   False =>
+              new_tsa_amount = builtin sub total_staked_amount amount;
+              new_csa_amount_inter = builtin add current_staked_amount remainder;
+              new_csa_amount = builtin sub new_csa_amount_inter amount;
+              backers_prev_deposit[_sender] := new_csa_amount;
+              backers_current_deposit[_sender] := new_csa_amount
+          end
+          
+  |   False =>
+        e = {
+            _eventname: "Insifficient Balance";
+            code: insufficient_balance_code
+        };
+        event e
+  end
+end
+
+transition PoolOut(amount: Uint128)
+    current_staked_amount <- backers_prev_deposit[_sender];
+    total_staked_amount <- backers_current_deposit[_sender];
+    match total_staked_amount with
+    |   Some total_staked_amount =>
+        match current_staked_amount with
+        |   Some current_staked_amount =>
+              PoolOutAssist amount total_staked_amount current_staked_amount
+        |   None =>
+              PoolOutAssist amount total_staked_amount zero
+        end
+
+    |   None =>
+        e = {
+            _eventname: "User Not Present";
+            code: user_not_present_code
+        };
+        event e
+    end
+end
+
+transition PoolIn(interest_percent: Uint128)
+    lottery_percent = builtin sub hundred interest_percent;
+    bs <- backers_current_deposit;
+    user_balance = get_user_amount bs _sender;
+    staking_contract_address <- staking_contract;
+    current_ssn_addr <- ssn_addr;
+    accept;
+    msg_stake = {
+        _tag: "DelegateStake";
+        _recipient: staking_contract_address;
+        _amount: _amount;
+        ssn_addr: current_ssn_addr
+    };
+    msgs = one_msg msg_stake;
+    e = {
+        _eventname: "Funds Added";
+        user: _sender;
+        amount: _amount;
+        code: successful_deposit_code
+        };
+    send msgs;
+    event e;
+    match user_balance with
+    | None =>
+        backers_current_deposit[_sender] := _amount;
+        backers_p_lottery[_sender] := lottery_percent;
+        backers_p_interest[_sender] := interest_percent
+
+    | Some sender_amt =>
+        new_sender_amt = builtin add sender_amt _amount;
+        backers_current_deposit[_sender] := new_sender_amt;
+        backers_p_lottery[_sender] := lottery_percent;
+        backers_p_interest[_sender] := interest_percent
+    end
+end
+
+transition update_percentages(interest_percent: Uint128)
+    lottery_percent = builtin sub hundred interest_percent;
+    backers_p_lottery[_sender] := lottery_percent;
+    backers_p_interest[_sender] := interest_percent;
+    e = {
+            _eventname: "Percentages Updated";
+            code: percentages_added;
+            user: _sender;
+            interestPerecent: interest_percent;
+            lotteryPercent: lottery_percent
+    };
+    event e
+end
+
+transition AddFunds()
+    contract_address <- staking_contract;
+    is_yield_contract = builtin eq _sender contract_address;
+    match is_yield_contract with
+    |   False =>
+            e = {
+                _eventname: "Not yield contract error";
+                _code: not_yield_contract_error
+            };
+            event e
+    |   True =>
+            accept;
+            current_yield := _amount;
+            e = {
+                _eventname: "Yield Accepted";
+                _code: yield_accepted;
+                yield_amount: _amount
+            };
+            event e
+    end
+end
+
+transition fetch_yield()
+  is_owner = builtin eq _sender owner;
+  contract_address <- staking_contract;
+  r_number <- round_number;
+  match is_owner with
+    |   False =>
+            e = {
+                _eventname: "Not Owner Error for Yield";
+                code: not_owner_code
+            };
+            event e
+    |   True =>
+            current_balance <- _balance;
+            prev_balance := current_balance;
+            msg = {
+                  _recipient: contract_address;
+                  _amount: zero;
+                  _tag: "WithDrawStakeReward";
+                  ssn_addr: _sender;
+                  round: r_number
+            };
+            msgs = one_msg msg;
+            send msgs;
+            r_number_new = builtin add r_number one;
+            round_number := r_number_new
+    end
+end
+
+procedure updateUserYield(user_yield_pair: Pair ByStr20 Uint128)
+(* statements go below *)
+    find_user = @fst ByStr20 Uint128;
+    find_yield = @snd ByStr20 Uint128;
+    user = find_user user_yield_pair;
+    yield = find_yield user_yield_pair;
+    interest_percentage <- backers_p_interest[user];
+    lottery_percentage <- backers_p_lottery[user];
+    match interest_percentage with
+    | Some interest_p =>
+      match lottery_percentage with
+      | Some lottery_p =>
+        lottery_contribution_mul = builtin mul yield lottery_p;
+        lottery_contribution = builtin div lottery_contribution_mul hundred;
+    
+        interest_contribution_mul = builtin mul yield interest_p;
+        interest_contribution = builtin div interest_contribution_mul hundred;
+        user_balance <- backers_current_deposit[user];
+        
+        match user_balance with
+        | Some balance =>
+          new_balance =  builtin add balance interest_contribution;
+          backers_current_deposit[user] := new_balance;
+          user_lottery_deposit[user] := lottery_contribution;
+          user_interests[user] := interest_contribution
+        | None=>
+        end
+      | None =>
+        e = {
+          _eventname: "User not found";
+          code: user_not_present_code
+          
+        };
+        event e
+      end
+    | None =>
+      e = {
+        _eventname: "User not found";
+        code: user_not_present_code
+      };
+      event e
+    end
+        
+end
+
+
+procedure calcUserYield(yields: Uint128)
+(* statements go below *)
+    
+    user_amount <- backers_prev_deposit;
+    user_map_to_listpair = builtin to_list user_amount; (**This will be a list of pairs ByStr20 Uint128**)
+    listpair_to_pairlist = @list_unzip ByStr20 Uint128;
+    user_map_to_pairlist = listpair_to_pairlist user_map_to_listpair;
+(*    first_list = fst_list user_map_to_pairlist;*)
+(*    second_list = snd_list ByStr20 Uint128;*)
+    
+    users = fst_list user_map_to_pairlist; (**Fetch the user list**)
+    amounts = snd_list user_map_to_pairlist; (**Fetch the amount list**)
+    list_sum_function = @list_sum Uint128; 
+    list_mul_function = @list_mul Uint128;
+    list_div_function = @list_div Uint128;
+
+    total_amount = list_sum_function amounts;
+    multiplied_yield = list_mul_function yields amounts;
+    distributed_yields = list_div_function total_amount multiplied_yield;
+
+    list_zipper = @list_zip ByStr20 Uint128;
+    
+    user_yields_listpair = list_zipper users distributed_yields;
+
+    e = {
+        _eventname: "User calculation";
+        listpair: user_yields_listpair
+    };
+    event e;
+    forall user_yields_listpair updateUserYield;
+    
+    user_interests_local <- user_interests;
+    user_restaking_to_listpair = builtin to_list user_interests_local;
+    user_restaking_to_pairlist = listpair_to_pairlist user_restaking_to_listpair;
+    restaking_amounts = snd_list user_restaking_to_pairlist;
+    list_sum_function = @list_sum Uint128;
+    restaking_amount = list_sum_function restaking_amounts;
+    total_restaking_amount := restaking_amount;
+    staking_contract_address <- staking_contract;
+    current_ssn_addr <- ssn_addr;
+    msg_stake = {
+        _tag: "DelegateStake";
+        _recipient: staking_contract_address;
+        _amount: restaking_amount;
+        ssn_addr: current_ssn_addr
+    };
+    msgs = one_msg msg_stake;
+    send msgs
+end
+
+transition compound_yield()
+  is_owner = builtin eq _sender owner;
+  contract_address <- staking_contract;
+  match is_owner with
+    |   False =>
+            e = {
+                _eventname: "Not Owner Error for Yield";
+                code: not_owner_code
+            };
+            event e
+    |   True =>
+            yield <- current_yield;
+            owner_cut_init = builtin mul yield owner_compound_percent;
+            owner_cut = builtin div owner_cut_init hundred;
+            users_yield = builtin sub yield owner_cut;
+            calcUserYield users_yield;
+            backers_current_deposit_local <- backers_current_deposit;
+            backers_prev_deposit := backers_current_deposit_local;
+            msg = {
+                    _recipient: _sender;
+                    _amount: owner_cut;
+                    _tag: "Compounding Owner Cut"
+                };
+            msgs = one_msg msg;
+            send msgs
+    end
+end
+
+procedure assignWinner(user_start_end: Pair (ByStr20) (Pair(Uint128) (Uint128)))
+    user = fst_pair_bystr_pairInt user_start_end;
+    start_end_idx = snd_pair_bystr_pairInt user_start_end;
+    start_idx = fst_int_int start_end_idx;
+    end_idx = snd_int_int start_end_idx;
+    random_seed_local <- random_seed;
+    is_start = uint128_gt random_seed_local start_idx;
+    is_end = uint128_gt end_idx random_seed_local;
+
+    match is_start with
+    | True =>
+      match is_end with
+      | True =>
+          lottery_winner := user;
+          e = {_eventname: "Lottery winner"; winner: user};
+          event e
+      | False =>
+      end
+    | False =>
+    end
+end
+
+transition lottery(rand_seed: Uint128)
+    is_owner = builtin eq _sender owner;
+    contract_address <- staking_contract;
+    match is_owner with
+    |   False =>
+            e = {
+                _eventname: "Not Owner Error for Yield";
+                code: not_owner_code
+            };
+            event e
+    |   True =>
+(*            yield <- current_yield;*)
+(*            owner_cut_init = builtin mul yield owner_lottery_percent;*)
+(*            owner_cut = builtin div owner_cut_init hundred;*)
+(*            users_yield = builtin sub yield owner_cut;*)
+(*            calcUserYield users_yield;*)
+(*            backers_current_deposit_local <- backers_current_deposit;*)
+(*            backers_prev_deposit := backers_current_deposit_local;*)
+
+            user_lottery_contri <- user_lottery_deposit;
+            user_map_to_listpair = builtin to_list user_lottery_contri; (**This will be a list of pairs ByStr20 Uint128**)
+            listpair_to_pairlist = @list_unzip ByStr20 Uint128;
+            user_map_to_pairlist = listpair_to_pairlist user_map_to_listpair;
+            users = fst_list user_map_to_pairlist; (**Fetch the user list**)
+            amounts = snd_list user_map_to_pairlist; (**Fetch the amount list**)
+            range_sum_function = @range_sum Uint128;
+            sum_end_idx_list = range_sum_function zero amounts;
+            sum = fst_int_list sum_end_idx_list;
+            owner_cut_init = builtin mul sum owner_lottery_percent;
+            owner_cut = builtin div owner_cut_init hundred;
+            end_idx_list = snd_int_list sum_end_idx_list;
+            list_zip_diff = @list_zip_with Uint128 Uint128 Uint128;
+            start_idx_list = let diff = fun (a: Uint128) => fun(b: Uint128) => builtin sub a b in (* diff = a - b *)
+                list_zip_diff diff end_idx_list amounts;
+
+            list_zip_pair = @list_zip Uint128 Uint128;
+            list_zip_user_range = @list_zip (ByStr20) (Pair (Uint128) (Uint128));
+            range_list = list_zip_pair start_idx_list end_idx_list;
+            user_range_list = list_zip_user_range users range_list;
+
+            seed = builtin rem rand_seed sum;
+            random_seed := seed;
+            prize = builtin sub sum owner_cut;
+            lottery_prize := prize;
+
+            forall user_range_list assignWinner;
+
+            msg = {
+                    _recipient: _sender;
+                    _amount: owner_cut;
+                    _tag: "Lottery Owner Cut"
+                };
+            msgs = one_msg msg;
+            send msgs
+    end
+end
+
+transition PayoutLotteryWinner()
+    is_owner = builtin eq _sender owner;
+    match is_owner with
+    |   True =>
+        lottery_prize_amount <- lottery_prize;
+        lottery_winner_current_round <- lottery_winner;
+        lottery_prize := zero;
+        msg = {
+                _recipient: lottery_winner_current_round;
+                _amount: lottery_prize_amount;
+                _tag: "Lottery Winner Payout"
+            };
+        msgs = one_msg msg;
+        send msgs
+    |   False =>
+        e = {
+            _eventname: "Not Owner Error for Payout Lottery";
+            code: not_owner_code
+        };
+        event e
+    end
+end
