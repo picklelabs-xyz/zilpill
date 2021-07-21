@@ -19,6 +19,12 @@ let owner_withdrawal: Int32 = Int32 -7
 let yield_accepted: Int32 = Int32 -9
 let percentages_added: Int32 = Int32 -10
 
+type Error =
+| InsufficientBalance
+| UserNotPresent
+| NotOwner
+| NotYieldContract
+
 let make_error =
 fun (result : Error) =>
   let result_code = 
@@ -247,9 +253,9 @@ transition OwnerWithdraw()
     end
 end
 
-procedure updatePercentages(compound_percent, lottery_percent)
-    backers_p_lottery[_sender] = lottery_percent;
-    backers_p_interest[_sender] = compound_percent
+procedure updatePercentages(compound_percent: Uint128, lottery_percent: Uint128)
+    backers_p_lottery[_sender] := lottery_percent;
+    backers_p_interest[_sender] := compound_percent
 end
 
 transition PoolIn(interest_percent: Uint128)
@@ -305,6 +311,7 @@ transition update_percentages(interest_percent: Uint128)
             lotteryPercent: lottery_percent
     };
     event e
+    end
 end
 
 procedure PoolOutAssist(amount: Uint128, total_staked_amount: Uint128, current_staked_amount: Uint128)
@@ -336,7 +343,7 @@ procedure PoolOutAssist(amount: Uint128, total_staked_amount: Uint128, current_s
           end
           
   |   False =>
-        err = InsufficientBalance
+        err = InsufficientBalance;
         ThrowError err
   end
 end
@@ -605,3 +612,4 @@ transition PayoutLotteryWinner()
             ThrowError err
     end
 end
+
