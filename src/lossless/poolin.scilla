@@ -1,0 +1,160 @@
+scilla_version 0
+
+import BoolUtils IntUtils PairUtils ListUtils
+
+library LosslessLottery
+
+let hundred: Uint128 = Uint128 100
+let zero: Uint128 = Uint128 0
+
+let successful_deposit_code: Int32 = Int32 -1
+let percentages_added: Int32 = Int32 -10
+
+type Error =
+| InsufficientBalance
+| UserNotPresent
+| NotOwner
+| NotYieldContract
+| IncorrectPercentage
+
+let make_error =
+fun (result : Error) =>
+  let result_code = 
+    match result with
+    | InsufficientBalance             => Int32 -1
+    | UserNotPresent                 => Int32 -2
+    | NotOwner                   => Int32 -3
+    | NotYieldContract                  => Int32 -4
+    | IncorrectPercentage => Int32 -5
+    end
+  in
+  { _exception : "ContractError"; code : result_code }
+
+  
+let get_user_amount = 
+    fun (bs : Map ByStr20 Uint128) =>
+    fun (sender : ByStr20) =>
+        builtin get bs sender
+
+let one_msg = fun(msg: Message) =>
+    let nil_msg = Nil {Message} in
+    Cons {Message} msg nil_msg
+
+let two_msgs =
+    fun (msg1 : Message) =>
+    fun (msg2 : Message) =>
+        let msgs_tmp = one_msg msg2 in
+        Cons {Message} msg1 msgs_tmp
+
+contract LosslessLottery(owner: ByStr20, 
+                         owner_compound_percent: Uint128,
+                         owner_lottery_percent: Uint128)
+
+field backers_current_deposit : Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field backers_p_lottery: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field backers_p_interest: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field staking_contract: ByStr20 = 0x62a9d5d611cdcae8d78005f31635898330e06b93
+field ssn_addr: ByStr20 = 0x82b82c65213e0b2b206492d3d8a2a679e7fe52e0
+
+(* New variables below *)
+
+procedure ThrowError(err : Error)
+  e = make_error err;
+  throw e
+end
+
+procedure IsOwner(initiator: ByStr20)
+  is_owner = builtin eq initiator owner;
+  match is_owner with
+    | True =>
+    | False =>
+        err = NotOwner;
+        ThrowError err
+    end
+end
+
+procedure updatePercentages(compound_percent: Uint128)
+    lottery_percent = builtin sub hundred compound_percent;
+    backers_p_lottery[_sender] := lottery_percent;
+    backers_p_interest[_sender] := compound_percent
+end
+
+(*Success Callback function for PoolIn*)
+transition DelegateStakeSuccessCallBack(ssnaddr: ByStr20, amount: Uint128)
+  e = {
+        _eventname: "Funds Added";
+        amount: _amount;
+        code: successful_deposit_code;
+        ssn_addr: ssnaddr
+        };
+  event e
+end
+
+procedure checkValidPercentage(interest_percent: Uint128)
+(* statements go below *)
+    is_ge_than_zero = uint128_ge interest_percent zero;
+    is_le_than_hundred = uint128_le interest_percent hundred;
+    match is_ge_than_zero with
+    |   True =>
+        match is_le_than_hundred with
+        |   True =>
+        |   False =>
+            err = IncorrectPercentage;
+            ThrowError err
+        end
+    |   False =>
+        err = IncorrectPercentage;
+        ThrowError err
+    end
+end
+
+transition PoolIn(interest_percent: Uint128)
+    checkValidPercentage interest_percent;
+    user_balance <- backers_current_deposit[_sender];
+    staking_contract_address <- staking_contract;
+    current_ssn_addr <- ssn_addr;
+    accept;
+    msg_stake = {
+        _tag: "DelegateStake";
+        _recipient: staking_contract_address;
+        _amount: _amount;
+        ssnaddr: current_ssn_addr
+    };
+    msgs = one_msg msg_stake;
+    send msgs;
+
+    match user_balance with
+    | None =>
+        backers_current_deposit[_sender] := _amount;
+        updatePercentages interest_percent
+
+    | Some sender_amt =>
+        new_sender_amt = builtin add sender_amt _amount;
+        backers_current_deposit[_sender] := new_sender_amt;
+        updatePercentages interest_percent
+    end
+end
+
+
+
+transition update_percentages(interest_percent: Uint128)
+    checkValidPercentage interest_percent;
+    user_balance <- backers_current_deposit[_sender];
+    match user_balance with
+    | None =>
+        err = UserNotPresent;
+        ThrowError err
+    | Some amt =>
+        
+        lottery_percent = builtin sub hundred interest_percent;
+        updatePercentages interest_percent;
+        e = {
+                _eventname: "Percentages Updated";
+                code: percentages_added;
+                user: _sender;
+                interestPerecent: interest_percent;
+                lotteryPercent: lottery_percent
+        };
+        event e
+    end
+end

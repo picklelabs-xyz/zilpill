@@ -1,0 +1,210 @@
+scilla_version 0
+
+import BoolUtils IntUtils PairUtils ListUtils
+
+library LosslessLottery
+
+let zero: Uint128 = Uint128 0
+let one: Uint128 = Uint128 1
+let two: Uint128 = Uint128 2
+let one_zil: Uint128 = Uint128 1000000000000
+let ten: Uint128 = Uint128 10
+let hundred: Uint128 = Uint128 100
+let successful_deposit_code: Int32 = Int32 -1
+
+let fund_withdraw_success_code: Int32 = Int32 -4
+let staking_contract_adress_update: Int32 = Int32 -5
+let owner_withdrawal: Int32 = Int32 -7
+(* let not_yield_contract_error: Int32 = Int32 -8 *)
+let yield_accepted: Int32 = Int32 -9
+let percentages_added: Int32 = Int32 -10
+
+type Error =
+| InsufficientBalance
+| UserNotPresent
+| NotOwner
+| NotYieldContract
+| IncorrectPercentage
+
+let make_error =
+fun (result : Error) =>
+  let result_code = 
+    match result with
+    | InsufficientBalance             => Int32 -1
+    | UserNotPresent                 => Int32 -2
+    | NotOwner                   => Int32 -3
+    | NotYieldContract                  => Int32 -4
+    | IncorrectPercentage => Int32 -5
+    end
+  in
+  { _exception : "ContractError"; code : result_code }
+
+  
+let get_user_amount = 
+    fun (bs : Map ByStr20 Uint128) =>
+    fun (sender : ByStr20) =>
+        builtin get bs sender
+
+let one_msg = fun(msg: Message) =>
+    let nil_msg = Nil {Message} in
+    Cons {Message} msg nil_msg
+
+let two_msgs =
+    fun (msg1 : Message) =>
+    fun (msg2 : Message) =>
+        let msgs_tmp = one_msg msg2 in
+        Cons {Message} msg1 msgs_tmp
+        
+
+
+contract LosslessLottery(owner: ByStr20, 
+                         owner_compound_percent: Uint128,
+                         owner_lottery_percent: Uint128)
+
+field backers_current_deposit : Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field backers_prev_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field staking_contract: ByStr20 = 0x62a9d5d611cdcae8d78005f31635898330e06b93
+field user_withdraw_dict: Map ByStr20 (Map BNum Uint128) = Emp ByStr20 (Map BNum Uint128)
+field ssn_addr: ByStr20 = 0x82b82c65213e0b2b206492d3d8a2a679e7fe52e0
+field available_withdrawal: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field bnum_required: Uint128 = Uint128 3500
+field matured_amount: Uint128 = Uint128 0
+
+(* New variables below *)
+
+procedure ThrowError(err : Error)
+  e = make_error err;
+  throw e
+end
+
+procedure IsOwner(initiator: ByStr20)
+  is_owner = builtin eq initiator owner;
+  match is_owner with
+    | True =>
+    | False =>
+        err = NotOwner;
+        ThrowError err
+    end
+end
+
+procedure findUserMaturedAmount(block_amount_pair: Pair BNum Uint128)
+    current_blocknum <- & BLOCKNUMBER;
+    b_req <- bnum_required;
+    match block_amount_pair with
+    |   Pair block amount =>
+        block_required = builtin badd b_req block;
+        is_valid_block = builtin blt block_required current_blocknum;
+        match is_valid with
+        |   True =>
+            matured_amount_curr <- matured_amount;
+            new_matured_amount = builtin add matured_amount_curr amount;
+            matured_amount := new_matured_amount;
+            delete pool_out[_sender][block]
+        |   False =>
+        end
+    end
+end
+
+transition CompleteWithdrawalNoUnbondedStakeCallBack(amount: Uint128)
+    accept
+end
+
+transition CompleteWithdrawalSuccessCallBack(amount: Uint128)
+    accept
+end
+
+transition claimMaturedStake()
+    current_blk <- & BLOCKNUMBER;
+    user_block_amount <- pool_out[_sender];
+    available_withdrawal := zero;
+    yield_contract <- staking_contract;
+    match user_block_amount with
+    |   None =>
+        err = UserNotPresent;
+        ThrowError err
+
+    |   Some user_block_amount =>
+        matured_amount := zero;
+        block_amount_listpair = builtin to_list user_block_amount;
+        forall block_amount_listpair findUserMaturedAmount;
+        user_matured_amount <- matured_amount;
+        msg = {
+            _tag: "CompleteWithdrawal";
+            _amount: zero;
+            _recipient: yield_contract;
+        }
+        msg2 = {
+            _tag: " User Withdrawal ";
+            _amount: user_matured_amount;
+            _recipient: _sender
+        };
+        msgs = two_msg msg msg2;
+        send msgs
+    end
+end
+
+procedure PoolOutAssist(amount: Uint128, total_staked_amount: Uint128, current_staked_amount: Uint128)
+  remainder = builtin sub total_staked_amount current_staked_amount;
+  is_valid_amount = uint128_le amount total_staked_amount;
+  current_contract <- staking_contract;
+  ssn <- ssn_addr;
+  match is_valid_amount with
+  |   True =>
+          is_amount_lte_rem = uint128_le amount remainder;
+          msg = {
+                  _tag: "WithDrawPrincipal";
+                  _amount: zero;
+                  _recipient: current_contract;
+                  amt: amount;
+                  ssnaddr: ssn
+          };
+          msgs = one_msg msg;
+          send msgs;
+          match is_amount_lte_rem with
+          |   True =>
+              new_amount = builtin sub total_staked_amount amount;
+              backers_current_deposit[_sender] := new_amount
+          |   False =>
+              new_tsa_amount = builtin sub total_staked_amount amount;
+              new_csa_amount = builtin add current_staked_amount remainder;
+              new_csa_amount = builtin sub new_csa_amount amount;
+              backers_prev_deposit[_sender] := new_csa_amount;
+              backers_current_deposit[_sender] := new_csa_amount
+          end
+          
+  |   False =>
+        err = InsufficientBalance;
+        ThrowError err
+  end
+end
+
+procedure updateWithdrawalAmount(amt: Uint128, user_amount: Option {Uint128}, currentBlk: BNum)
+    withdraw_amt_pending = match user_amount with
+    | Some v => builtin add v amt
+    | None => amt
+    end;
+    user_withdraw_dict[_sender][BNum] := amount
+end
+
+transition PoolOut(amount: Uint128)
+    current_staked_amount <- backers_prev_deposit[_sender];
+    total_staked_amount <- backers_current_deposit[_sender];
+    current_blk = & BLOCKNUMBER;
+    match total_staked_amount with
+    |   Some total_staked_amount =>
+        match current_staked_amount with
+        |   Some current_staked_amount =>
+                PoolOutAssist amount total_staked_amount current_staked_amount;
+                user_amount <- user_withdraw_dict[_sender];
+                updateWithdrawalAmount amount user_amount current_blk
+        |   None =>
+                PoolOutAssist amount total_staked_amount zero;
+                user_withdraw_dict[_sender][current_blk] := amount;
+                updateWithdrawalAmount amount user_amount current_blk
+        end
+
+    |   None =>
+        err = UserNotPresent;
+        ThrowError err
+    end
+end
