@@ -181,7 +181,7 @@ procedure updateWithdrawalAmount(amt: Uint128, user_amount: Option {Uint128}, cu
     | Some v => builtin add v amt
     | None => amt
     end;
-    user_withdraw_dict[_sender][BNum] := amount
+    user_withdraw_dict[_sender][currentBlk] := withdraw_amt_pending
 end
 
 transition PoolOut(amount: Uint128)
@@ -193,11 +193,11 @@ transition PoolOut(amount: Uint128)
         match current_staked_amount with
         |   Some current_staked_amount =>
                 PoolOutAssist amount total_staked_amount current_staked_amount;
-                user_amount <- user_withdraw_dict[_sender];
+                user_amount <- user_withdraw_dict[_sender][current_blk];
                 updateWithdrawalAmount amount user_amount current_blk
         |   None =>
                 PoolOutAssist amount total_staked_amount zero;
-                user_withdraw_dict[_sender][current_blk] := amount;
+                user_amount <- user_withdraw_dict[_sender][current_blk];
                 updateWithdrawalAmount amount user_amount current_blk
         end
 

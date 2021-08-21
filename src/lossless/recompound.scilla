@@ -86,21 +86,23 @@ transition AddFunds()
 end
 
 transition WithdrawStakeRewardsSuccessCallBack(ssnaddr: ByStr20, rewards: Uint128)
+    current_yield := rewards
 end
 
 transition fetch_yield()
     IsOwner _sender;
-    contract_address <- staking_contract;
+    staking_contract_local <- staking_contract;
     r_number <- round_number;
     current_balance <- _balance;
     prev_balance := current_balance;
     r_number_new = builtin add r_number one;
     round_number := r_number_new;
+    ssn_addr_local <- ssn_addr;
     msg = {
-        _recipient: contract_address;
+        _recipient: staking_contract_local;
         _amount: zero;
         _tag: "WithdrawStakeRewards";
-        ssn_addr: _sender
+        ssn_addr: ssn_addr_local
     };
     msgs = one_msg msg;
     send msgs
@@ -202,12 +204,13 @@ end
 
 transition compound_yield()
   IsOwner _sender;
-  previous_balance <- prev_balance;
+  (* previous_balance <- prev_balance;
   current_balance <- _balance;
   contract_address <- staking_contract;
   
-  yield = builtin sub current_balance previous_balance;
-  current_yield := yield;
+  yield = builtin sub current_balance previous_balance; *)
+  (* current_yield := yield; *)
+  yield <- current_yield;
   owner_cut = builtin mul yield owner_compound_percent;
   owner_cut = builtin div owner_cut hundred;
 

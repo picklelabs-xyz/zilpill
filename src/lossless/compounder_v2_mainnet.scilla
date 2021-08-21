@@ -57,7 +57,7 @@ field backers_p_lottery: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field backers_p_interest: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field staking_contract: ByStr20 = 0x62a9d5d611cdcae8d78005f31635898330e06b93
 field gzil_contract: ByStr20 = 0xa845c1034cd077bd8d32be0447239c7e4be6cb21
-field ssn_addr: ByStr20 = 0x82b82c65213e0b2b206492d3d8a2a679e7fe52e0
+field ssn_addr: ByStr20 = 0xda97F61825773A649ca28351FC0D92B4f32d184D
 field user_interests: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field user_lottery_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field current_yield: Uint128 = Uint128 0
@@ -71,7 +71,6 @@ field random_seed: Uint128 = Uint128 0
 field round_number: Uint128 = Uint128 0
 field range_start: Uint128 = Uint128 0
 field user_lotteryPrize: Map ByStr20 Uint128 = Emp ByStr20 Uint128
-field available_withdrawal: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field bnum_required: Uint128 = Uint128 3500
 field matured_amount: Uint128 = Uint128 0
 field user_withdraw_dict: Map ByStr20 (Map BNum Uint128) = Emp ByStr20 (Map BNum Uint128)
@@ -477,7 +476,6 @@ procedure resetParams()
     round_number:= zero;
     range_start:= zero;
     user_lotteryPrize:= emp_map;
-    available_withdrawal:= emp_map;
     bnum_required:= b_num_reset;
     matured_amount:= zero;
     user_withdraw_dict:= emp_map_uwd
@@ -515,23 +513,36 @@ procedure findUserMaturedAmount(block_amount_pair: Pair BNum Uint128)
             matured_amount_curr <- matured_amount;
             new_matured_amount = builtin add matured_amount_curr amount;
             matured_amount := new_matured_amount;
-            delete pool_out[_sender][block]
+            delete user_withdraw_dict[_sender][block]
         |   False =>
         end
     end
 end
 
-transition CompleteWithdrawalNoUnbondedStakeCallBack(amount: Uint128)
-end
+(* transition CompleteWithdrawalNoUnbondedStakeCallBack(amount: Uint128)
+end *)
 
 transition CompleteWithdrawalSuccessCallBack(amount: Uint128)
 end
 
+transition WithdrawStakeAmtSuccessCallBack(ssnaddr: ByStr20, amount: Uint128)
+end
+
+transition fetchMaturedStake()
+    yield_contract <- staking_contract;
+    msg = {
+        _tag: "CompleteWithdrawal";
+        _amount: zero;
+        _recipient: yield_contract
+    };
+    msgs = one_msg msg;
+    send msgs
+end
+
 transition claimMaturedStake()
     current_blk <- & BLOCKNUMBER;
-    user_block_amount <- pool_out[_sender];
-    available_withdrawal := zero;
-    yield_contract <- staking_contract;
+    user_block_amount <- user_withdraw_dict[_sender];
+    
     match user_block_amount with
     |   None =>
         err = UserNotPresent;
@@ -542,17 +553,13 @@ transition claimMaturedStake()
         block_amount_listpair = builtin to_list user_block_amount;
         forall block_amount_listpair findUserMaturedAmount;
         user_matured_amount <- matured_amount;
-        msg = {
-            _tag: "CompleteWithdrawal";
-            _amount: zero;
-            _recipient: yield_contract
-        };
+        
         msg2 = {
             _tag: " User Withdrawal ";
             _amount: user_matured_amount;
             _recipient: _sender
         };
-        msgs = two_msg msg msg2;
+        msgs = one_msg msg2;
         send msgs
     end
 end
