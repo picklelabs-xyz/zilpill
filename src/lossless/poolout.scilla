@@ -106,11 +106,9 @@ procedure findUserMaturedAmount(block_amount_pair: Pair BNum Uint128)
 end
 
 transition CompleteWithdrawalNoUnbondedStakeCallBack(amount: Uint128)
-    accept
 end
 
 transition CompleteWithdrawalSuccessCallBack(amount: Uint128)
-    accept
 end
 
 transition claimMaturedStake()
@@ -152,7 +150,7 @@ procedure PoolOutAssist(amount: Uint128, total_staked_amount: Uint128, current_s
   |   True =>
           is_amount_lte_rem = uint128_le amount remainder;
           msg = {
-                  _tag: "WithDrawPrincipal";
+                  _tag: "WithdrawStakeAmt";
                   _amount: zero;
                   _recipient: current_contract;
                   amt: amount;

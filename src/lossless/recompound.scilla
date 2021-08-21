@@ -86,7 +86,6 @@ transition AddFunds()
 end
 
 transition WithdrawStakeRewardsSuccessCallBack(ssnaddr: ByStr20, rewards: Uint128)
-  accept
 end
 
 transition fetch_yield()

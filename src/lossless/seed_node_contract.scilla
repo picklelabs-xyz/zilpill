@@ -1920,36 +1920,38 @@ current_deleg := r;
 current_ssn := r;
 new_deleg := r
 end
+
 procedure SwapDelegator(requestor: ByStr20, new_deleg_addr: ByStr20)
-c = Some {ByStr20} requestor;
-current_deleg := c;
-n = Some {ByStr20} new_deleg_addr;
-new_deleg := n;
-ssn_deposit_map <- deposit_amt_deleg[requestor];
-match ssn_deposit_map with
-| Some ssn_deposit_entry =>
-ssn_deposit_list = builtin to_list ssn_deposit_entry;
-forall ssn_deposit_list SwapDirectDeposit;
-forall ssn_deposit_list SwapDelegStakePerCycle;
-forall ssn_deposit_list SwapDepositAmtDeleg;
-forall ssn_deposit_list SwapSSNDelegAmt;
-forall ssn_deposit_list SwapLastBuffDepositCycleDeleg;
-forall ssn_deposit_list SwapLastWithdrawCycleDeleg
-| None =>
-end;
-match c with
-| Some initial_deleg =>
-deleg_blk_map <- withdrawal_pending[initial_deleg];
-match deleg_blk_map with
-| Some deleg_blk_entry =>
-cycle_reward_list = builtin to_list deleg_blk_entry;
-forall cycle_reward_list SwapPendingWithdrawal;
-delete withdrawal_pending[initial_deleg]
-| None =>
+    c = Some {ByStr20} requestor;
+    current_deleg := c;
+    n = Some {ByStr20} new_deleg_addr;
+    new_deleg := n;
+    ssn_deposit_map <- deposit_amt_deleg[requestor];
+    match ssn_deposit_map with
+    | Some ssn_deposit_entry =>
+        ssn_deposit_list = builtin to_list ssn_deposit_entry;
+        forall ssn_deposit_list SwapDirectDeposit;
+        forall ssn_deposit_list SwapDelegStakePerCycle;
+        forall ssn_deposit_list SwapDepositAmtDeleg;
+        forall ssn_deposit_list SwapSSNDelegAmt;
+        forall ssn_deposit_list SwapLastBuffDepositCycleDeleg;
+        forall ssn_deposit_list SwapLastWithdrawCycleDeleg
+    | None =>
+        end;
+    match c with
+    | Some initial_deleg =>
+        deleg_blk_map <- withdrawal_pending[initial_deleg];
+        match deleg_blk_map with
+        | Some deleg_blk_entry =>
+            cycle_reward_list = builtin to_list deleg_blk_entry;
+            forall cycle_reward_list SwapPendingWithdrawal;
+            delete withdrawal_pending[initial_deleg]
+        | None =>
+        end
+    | None =>
+        end
 end
-| None =>
-end
-end
+
 procedure IsNotCyclicSwap(initiator: ByStr20, new_deleg_addr: ByStr20)
 cyclic_initiator <- deleg_swap_request[new_deleg_addr];
 match cyclic_initiator with

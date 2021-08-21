@@ -6,17 +6,8 @@ library LosslessLottery
 
 let zero: Uint128 = Uint128 0
 let one: Uint128 = Uint128 1
-let two: Uint128 = Uint128 2
-let one_zil: Uint128 = Uint128 1000000000000
-let ten: Uint128 = Uint128 10
 let hundred: Uint128 = Uint128 100
 let successful_deposit_code: Int32 = Int32 -1
-
-let fund_withdraw_success_code: Int32 = Int32 -4
-let staking_contract_adress_update: Int32 = Int32 -5
-let owner_withdrawal: Int32 = Int32 -7
-(* let not_yield_contract_error: Int32 = Int32 -8 *)
-let yield_accepted: Int32 = Int32 -9
 let percentages_added: Int32 = Int32 -10
 
 type Error =
@@ -25,6 +16,7 @@ type Error =
 | NotOwner
 | NotYieldContract
 | IncorrectPercentage
+| NoWinningAmount
 
 let make_error =
 fun (result : Error) =>
@@ -35,11 +27,11 @@ fun (result : Error) =>
     | NotOwner                   => Int32 -3
     | NotYieldContract                  => Int32 -4
     | IncorrectPercentage => Int32 -5
+    | NoWinningAmount => Int32 -6
     end
   in
   { _exception : "ContractError"; code : result_code }
 
-  
 let get_user_amount = 
     fun (bs : Map ByStr20 Uint128) =>
     fun (sender : ByStr20) =>
@@ -54,8 +46,6 @@ let two_msgs =
     fun (msg2 : Message) =>
         let msgs_tmp = one_msg msg2 in
         Cons {Message} msg1 msgs_tmp
-        
-
 
 contract LosslessLottery(owner: ByStr20, 
                          owner_compound_percent: Uint128,
@@ -65,28 +55,28 @@ field backers_current_deposit : Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field backers_prev_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field backers_p_lottery: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field backers_p_interest: Map ByStr20 Uint128 = Emp ByStr20 Uint128
-field user_lottery_range: Map ByStr20 (Pair Uint128 Uint128) = Emp ByStr20 (Pair Uint128 Uint128)
 field staking_contract: ByStr20 = 0x62a9d5d611cdcae8d78005f31635898330e06b93
-field yield_contract: ByStr20 = 0x62a9d5d611cdcae8d78005f31635898330e06b93
 field gzil_contract: ByStr20 = 0xa845c1034cd077bd8d32be0447239c7e4be6cb21
 field ssn_addr: ByStr20 = 0x82b82c65213e0b2b206492d3d8a2a679e7fe52e0
-field staking_contract_stake_transition: String = "DelegateStake"
 field user_interests: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field user_lottery_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field current_yield: Uint128 = Uint128 0
 field prev_balance: Uint128 = Uint128 0
-field curr_balance: Uint128= Uint128 0
 field total_restaking_amount: Uint128 = Uint128 0
+field total_sum: Uint128 = Uint128 0
+field user_lottery_range: Map ByStr20 (Pair Uint128 Uint128) = Emp ByStr20 (Pair Uint128 Uint128)
 field lottery_winner: ByStr20 = 0xfb7ba19013b3c1fc3c20da60d42fd3aca66f5195
 field lottery_prize: Uint128 = Uint128 0
 field random_seed: Uint128 = Uint128 0
-field cs_amount: Uint128 = Uint128 0
 field round_number: Uint128 = Uint128 0
-field first_val: Uint128 = Uint128 0
 field range_start: Uint128 = Uint128 0
+field user_lotteryPrize: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field available_withdrawal: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field bnum_required: Uint128 = Uint128 3500
+field matured_amount: Uint128 = Uint128 0
+field user_withdraw_dict: Map ByStr20 (Map BNum Uint128) = Emp ByStr20 (Map BNum Uint128)
 
 (* New variables below *)
-field total_sum: Uint128 = Uint128 0
 
 procedure ThrowError(err : Error)
   e = make_error err;
@@ -101,68 +91,6 @@ procedure IsOwner(initiator: ByStr20)
         err = NotOwner;
         ThrowError err
     end
-end
-
-transition update_staking_contract(staking_contract_address: ByStr20)
-    IsOwner _sender;
-    staking_contract := staking_contract_address;
-    e = {
-        _eventname: "Staking contract address updated";
-        code: staking_contract_adress_update
-    };
-    event e
-end
-
-
-transition TransferSuccessCallBack(sender: ByStr20, recipient: ByStr20, amount:Uint128)
-  accept
-end
-(* The transition OwnerWithdraw is for testing purpose only. To be removed from mainNet launch *)
-transition TransferToOwner(gzil_balance: Uint128)
-  gzil_current_contract <- gzil_contract;
-  contract_balance <- _balance;
-  msg = {
-    _tag: "transferring balance to owner";
-    _amount: contract_balance;
-    _recipient: owner
-  };
-  msg2 = {
-    _tag: "Transfer";
-    _amount: zero;
-    amount: gzil_balance;
-    _recipient: gzil_current_contract;
-    to: owner
-  };
-  msgs = one_msg msg;
-  send msgs
-end
-
-transition OwnerWithdraw()
-    IsOwner _sender;
-    bal <- _balance;
-    empty_map = Emp ByStr20 Uint128;
-    backers_current_deposit := empty_map;
-    backers_p_interest := empty_map;
-    backers_p_lottery := empty_map;
-    backers_prev_deposit := empty_map;
-    user_interests := empty_map;
-    user_lottery_deposit := empty_map;
-
-    curr_balance := zero;
-    current_yield := zero;
-    lottery_prize := zero;
-    prev_balance := zero;
-    random_seed := zero;
-    round_number := zero;
-    total_restaking_amount := zero;
-
-    msg = {
-        _tag: "CompleteWithdrawal";
-        _amount: bal;
-        _recipient: _sender
-    };
-    msgs = one_msg msg;
-    send msgs
 end
 
 procedure updatePercentages(compound_percent: Uint128)
@@ -213,8 +141,8 @@ transition PoolIn(interest_percent: Uint128)
         ssnaddr: current_ssn_addr
     };
     msgs = one_msg msg_stake;
-    
     send msgs;
+
     match user_balance with
     | None =>
         backers_current_deposit[_sender] := _amount;
@@ -226,8 +154,6 @@ transition PoolIn(interest_percent: Uint128)
         updatePercentages interest_percent
     end
 end
-
-
 
 transition update_percentages(interest_percent: Uint128)
     checkValidPercentage interest_percent;
@@ -251,66 +177,11 @@ transition update_percentages(interest_percent: Uint128)
     end
 end
 
-procedure PoolOutAssist(amount: Uint128, total_staked_amount: Uint128, current_staked_amount: Uint128)
-  remainder = builtin sub total_staked_amount current_staked_amount;
-  is_valid_amount = uint128_le amount total_staked_amount;
-  current_contract <- staking_contract;
-  match is_valid_amount with
-  |   True =>
-          is_amount_lte_rem = uint128_le amount remainder;
-          msg = {
-                  _tag: "WithDrawPrincipal";
-                  _amount: zero;
-                  _recipient: current_contract;
-                  receiver: _sender;
-                  amount: amount
-          };
-          msgs = one_msg msg;
-          send msgs;
-          match is_amount_lte_rem with
-          |   True =>
-              new_amount = builtin sub total_staked_amount amount;
-              backers_current_deposit[_sender] := new_amount
-          |   False =>
-              new_tsa_amount = builtin sub total_staked_amount amount;
-              new_csa_amount_inter = builtin add current_staked_amount remainder;
-              new_csa_amount = builtin sub new_csa_amount_inter amount;
-              backers_prev_deposit[_sender] := new_csa_amount;
-              backers_current_deposit[_sender] := new_csa_amount
-          end
-          
-  |   False =>
-        err = InsufficientBalance;
-        ThrowError err
-  end
-end
-
-transition PoolOut(amount: Uint128)
-    current_staked_amount <- backers_prev_deposit[_sender];
-    total_staked_amount <- backers_current_deposit[_sender];
-    match total_staked_amount with
-    |   Some total_staked_amount =>
-        match current_staked_amount with
-        |   Some current_staked_amount =>
-              PoolOutAssist amount total_staked_amount current_staked_amount
-        |   None =>
-              PoolOutAssist amount total_staked_amount zero
-        end
-
-    |   None =>
-        err = UserNotPresent;
-        ThrowError err
-    end
-end
-
-(* The below function received the yield from the smart contract *)
 transition AddFunds()
       accept
-
 end
 
 transition WithdrawStakeRewardsSuccessCallBack(ssnaddr: ByStr20, rewards: Uint128)
-  accept
 end
 
 transition fetch_yield()
@@ -319,6 +190,8 @@ transition fetch_yield()
     r_number <- round_number;
     current_balance <- _balance;
     prev_balance := current_balance;
+    r_number_new = builtin add r_number one;
+    round_number := r_number_new;
     msg = {
         _recipient: contract_address;
         _amount: zero;
@@ -326,9 +199,7 @@ transition fetch_yield()
         ssn_addr: _sender
     };
     msgs = one_msg msg;
-    send msgs;
-    r_number_new = builtin add r_number one;
-    round_number := r_number_new
+    send msgs
 end
 
 procedure updateUserDeposit(user: ByStr20, yield: Uint128)
@@ -359,8 +230,8 @@ procedure updateRecompoundingYield(user: ByStr20, user_yield: Uint128)
     compounding_contribution <- backers_p_interest[user];
     match compounding_contribution with
     | Some percentage =>
-        user_recompounding_yield_tmp = builtin mul percentage user_yield;
-        user_recompounding_yield = builtin div user_recompounding_yield_tmp hundred;
+        user_recompounding_yield = builtin mul percentage user_yield;
+        user_recompounding_yield = builtin div user_recompounding_yield hundred;
         total_restaking_amount_tmp <- total_restaking_amount;
         current_restaking_amount = builtin add total_restaking_amount_tmp user_recompounding_yield;
         total_restaking_amount := current_restaking_amount;
@@ -370,7 +241,6 @@ procedure updateRecompoundingYield(user: ByStr20, user_yield: Uint128)
         err = UserNotPresent;
         ThrowError err
     end
-    
 end
 
 procedure updateLotteryYield(user: ByStr20, user_yield: Uint128)
@@ -378,8 +248,8 @@ procedure updateLotteryYield(user: ByStr20, user_yield: Uint128)
     lottery_contribution <- backers_p_lottery[user];
     match lottery_contribution with
     | Some percentage =>
-        user_lottery_yield_tmp = builtin mul percentage user_yield;
-        user_lottery_yield = builtin div user_lottery_yield_tmp hundred;
+        user_lottery_yield = builtin mul percentage user_yield;
+        user_lottery_yield = builtin div user_lottery_yield hundred;
         user_lottery_deposit[user] := user_lottery_yield
     | None =>
         err = UserNotPresent;
@@ -428,12 +298,15 @@ end
 
 transition compound_yield()
   IsOwner _sender;
-  contract_address <- staking_contract;
+  previous_balance <- prev_balance;
   current_balance <- _balance;
-  current_yield := current_balance;
-  yield <- current_yield;
-  owner_cut_init = builtin mul yield owner_compound_percent;
-  owner_cut = builtin div owner_cut_init hundred;
+  contract_address <- staking_contract;
+  
+  yield = builtin sub current_balance previous_balance;
+  current_yield := yield;
+  owner_cut = builtin mul yield owner_compound_percent;
+  owner_cut = builtin div owner_cut hundred;
+
   users_yield = builtin sub yield owner_cut;
   total_restaking_amount := zero;
   calcUserYield users_yield;
@@ -462,9 +335,7 @@ procedure assignWinner(user_start_end: Pair ByStr20 (Pair Uint128 Uint128))
         | True =>
         match is_end with
         | True =>
-            lottery_winner := user;
-            e = {_eventname: "Lottery winner"; winner: user};
-            event e
+            lottery_winner := user
         | False =>
         end
         | False =>
@@ -485,6 +356,16 @@ procedure findUserRange(user_amount: Pair ByStr20 Uint128)
     end
 end
 
+procedure updateWinnerPrize(winner: ByStr20, prize: Uint128)
+    user_existing_lottery_prize <- user_lotteryPrize[winner];
+    match user_existing_lottery_prize with
+    | Some amt =>
+        new_amt = builtin add amt prize;
+        user_lotteryPrize[winner] := new_amt
+    | None =>
+        user_lotteryPrize[winner] := prize
+    end
+end
 
 transition lottery(rand_seed: Uint128)
     IsOwner _sender;
@@ -494,38 +375,115 @@ transition lottery(rand_seed: Uint128)
     forall user_lotteryDeposit_listpair findUserRange;
 
     sum <- range_start;
-    owner_cut_init = builtin mul sum owner_lottery_percent;
-    owner_cut = builtin div owner_cut_init hundred;
+    owner_cut = builtin mul sum owner_lottery_percent;
+    owner_cut = builtin div owner_cut hundred;
 
-    user_lottery_range_c <- user_lottery_range;
-    user_range_list = builtin to_list user_lottery_range_c;
-    seed = builtin rem rand_seed sum;
-    random_seed := seed;
+    user_lottery_range_local <- user_lottery_range;
+    user_range_list = builtin to_list user_lottery_range_local;
+    rand_seed = builtin rem rand_seed sum;
+    random_seed := rand_seed;
     prize = builtin sub sum owner_cut;
     lottery_prize := prize;
 
     forall user_range_list assignWinner;
-
+    round_number_local <- round_number;
+    round_winner_local <- lottery_winner;
+    winning_amount <- lottery_prize;
+    updateWinnerPrize round_winner_local prize;
     msg = {
-            _recipient: _sender;
-            _amount: owner_cut;
-            _tag: "Lottery Owner Cut"
-        };
+        _recipient: _sender;
+        _amount: owner_cut;
+        _tag: "Lottery Owner Cut"
+    };
+    e = {
+            _eventname: "Lottery Draw";
+            roundNumber: round_number_local;
+            roundWinner: round_winner_local;
+            roundLotteryAmount: winning_amount
+    };
     msgs = one_msg msg;
-    send msgs
+    send msgs;
+    event e
+
 end
 
 transition PayoutLotteryWinner()
-    IsOwner _sender;
-    lottery_prize_amount <- lottery_prize;
-    lottery_winner_current_round <- lottery_winner;
-    lottery_prize := zero;
-    msg = {
-            _recipient: lottery_winner_current_round;
-            _amount: lottery_prize_amount;
-            _tag: "Lottery Winner Payout"
+
+    sender_lottery_prize <- user_lotteryPrize[_sender];
+    match sender_lottery_prize with
+    | Some amt =>
+        msg = {
+            _recipient: _sender;
+            _amount: amt;
+            _tag: "Lottery Prize Transfer"
         };
-    msgs = one_msg msg;
-    send msgs
+        msgs = one_msg msg;
+        send msgs
+    | None =>
+        err = NoWinningAmount;
+        ThrowError err
+    end
 end
 
+transition TransferSuccessCallBack(sender: ByStr20, recipient: ByStr20, amount: Uint128)
+end
+
+procedure transferGzilToOwner(amount: Uint128)
+  gzil_contract_local <- gzil_contract; 
+  msg = {
+    _tag: "Transfer";
+    _recipient: _sender;
+    _amount: zero;
+    to: gzil_contract_local;
+    amount: amount
+  };
+  msgs = one_msg msg;
+  send msgs
+end
+
+procedure transferStakeOwnershipToOwner()
+  staking_contract_local <- staking_contract;
+  msg = {
+    _tag: "RequestDelegatorSwap";
+    _recipient: staking_contract_local;
+    _amount: zero;
+    new_deleg_addr: _sender
+  };
+  msgs = one_msg msg;
+  send msgs
+end
+
+procedure resetParams()
+    emp_map = Emp ByStr20 Uint128;
+    emp_map_uwd = Emp ByStr20 (Map BNum Uint128);
+    emp_map_ulr = Emp ByStr20 (Pair Uint128 Uint128);
+    b_num_reset = Uint128 3500;
+    backers_current_deposit := emp_map;
+    backers_prev_deposit:= emp_map;
+    backers_p_lottery:= emp_map;
+    backers_p_interest:= emp_map;
+    user_interests:= emp_map;
+    user_lottery_deposit:= emp_map;
+    current_yield:= zero;
+    prev_balance:= zero;
+    total_restaking_amount:= zero;
+    total_sum:= zero;
+    round_number:= zero;
+    user_lottery_range:= emp_map_ulr;
+    lottery_prize:= zero;
+    random_seed:= zero;
+    round_number:= zero;
+    range_start:= zero;
+    user_lotteryPrize:= emp_map;
+    available_withdrawal:= emp_map;
+    bnum_required:= b_num_reset;
+    matured_amount:= zero;
+    user_withdraw_dict:= emp_map_uwd
+end
+
+transition ownerWithdraw(gzil_amount: Uint128)
+    IsOwner _sender;
+    transferStakeOwnershipToOwner;
+    transferGzilToOwner gzil_amount;
+    resetParams
+end

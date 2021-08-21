@@ -1,0 +1,144 @@
+scilla_version 0
+
+import BoolUtils IntUtils PairUtils ListUtils
+
+library LosslessLottery
+
+let zero: Uint128 = Uint128 0
+let one: Uint128 = Uint128 1
+let two: Uint128 = Uint128 2
+let one_zil: Uint128 = Uint128 1000000000000
+let ten: Uint128 = Uint128 10
+let hundred: Uint128 = Uint128 100
+let successful_deposit_code: Int32 = Int32 -1
+
+let fund_withdraw_success_code: Int32 = Int32 -4
+let staking_contract_adress_update: Int32 = Int32 -5
+let owner_withdrawal: Int32 = Int32 -7
+(* let not_yield_contract_error: Int32 = Int32 -8 *)
+let yield_accepted: Int32 = Int32 -9
+let percentages_added: Int32 = Int32 -10
+
+type Error =
+| InsufficientBalance
+| UserNotPresent
+| NotOwner
+| NotYieldContract
+| IncorrectPercentage
+
+let make_error =
+fun (result : Error) =>
+  let result_code = 
+    match result with
+    | InsufficientBalance             => Int32 -1
+    | UserNotPresent                 => Int32 -2
+    | NotOwner                   => Int32 -3
+    | NotYieldContract                  => Int32 -4
+    | IncorrectPercentage => Int32 -5
+    end
+  in
+  { _exception : "ContractError"; code : result_code }
+
+  
+let get_user_amount = 
+    fun (bs : Map ByStr20 Uint128) =>
+    fun (sender : ByStr20) =>
+        builtin get bs sender
+
+let one_msg = fun(msg: Message) =>
+    let nil_msg = Nil {Message} in
+    Cons {Message} msg nil_msg
+
+let two_msgs =
+    fun (msg1 : Message) =>
+    fun (msg2 : Message) =>
+        let msgs_tmp = one_msg msg2 in
+        Cons {Message} msg1 msgs_tmp
+        
+
+
+contract LosslessLottery(owner: ByStr20, 
+                         owner_compound_percent: Uint128,
+                         owner_lottery_percent: Uint128)
+
+field backers_current_deposit : Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field backers_prev_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field backers_p_lottery: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field backers_p_interest: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field user_lottery_range: Map ByStr20 (Pair Uint128 Uint128) = Emp ByStr20 (Pair Uint128 Uint128)
+field staking_contract: ByStr20 = 0x62a9d5d611cdcae8d78005f31635898330e06b93
+field yield_contract: ByStr20 = 0x62a9d5d611cdcae8d78005f31635898330e06b93
+field gzil_contract: ByStr20 = 0xa845c1034cd077bd8d32be0447239c7e4be6cb21
+field ssn_addr: ByStr20 = 0x82b82c65213e0b2b206492d3d8a2a679e7fe52e0
+field staking_contract_stake_transition: String = "DelegateStake"
+field user_interests: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field user_lottery_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field current_yield: Uint128 = Uint128 0
+field prev_balance: Uint128 = Uint128 0
+field curr_balance: Uint128= Uint128 0
+field total_restaking_amount: Uint128 = Uint128 0
+field lottery_winner: ByStr20 = 0xfb7ba19013b3c1fc3c20da60d42fd3aca66f5195
+field lottery_prize: Uint128 = Uint128 0
+field random_seed: Uint128 = Uint128 0
+field cs_amount: Uint128 = Uint128 0
+field round_number: Uint128 = Uint128 0
+field first_val: Uint128 = Uint128 0
+field range_start: Uint128 = Uint128 0
+
+(* New variables below *)
+field total_sum: Uint128 = Uint128 0
+
+procedure ThrowError(err : Error)
+  e = make_error err;
+  throw e
+end
+
+procedure IsOwner(initiator: ByStr20)
+  is_owner = builtin eq initiator owner;
+  match is_owner with
+    | True =>
+    | False =>
+        err = NotOwner;
+        ThrowError err
+    end
+end
+
+transition TransferSuccessCallBack(sender: ByStr20, recipient: ByStr20, amount: Uint128)
+end
+
+procedure transferGzilToOwner(amount: Uint128)
+  gzil_contract_local <- gzil_contract; 
+  msg = {
+    _tag: "Transfer";
+    _recipient: _sender;
+    _amount: zero;
+    to: gzil_contract_local;
+    amount: amount
+  };
+  msgs = one_msg msg;
+  send msgs
+end
+
+procedure transferStakeOwnershipToOwner()
+  staking_contract_local <- staking_contract;
+  msg = {
+    _tag: "RequestDelegatorSwap";
+    _recipient: staking_contract_local;
+    _amount: zero;
+    new_deleg_addr: _sender;
+  };
+  msgs = one_msg msg;
+  send msgs
+end
+
+procedure resetParams()
+
+end
+
+transition ownerWithdraw()
+    IsOwner _sender;
+    transferStakeOwnershipToOwner;
+    transferGzilToOwner;
+    resetParams;
+end
+
