@@ -64,7 +64,7 @@ field current_yield: Uint128 = Uint128 0
 field prev_balance: Uint128 = Uint128 0
 field total_restaking_amount: Uint128 = Uint128 0
 field total_sum: Uint128 = Uint128 0
-field user_lottery_range: Map ByStr20 (Pair Uint128 Uint128) = Emp ByStr20 (Pair Uint128 Uint128)
+field user_lottery_range: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field lottery_winner: ByStr20 = 0xfb7ba19013b3c1fc3c20da60d42fd3aca66f5195
 field lottery_prize: Uint128 = Uint128 0
 field random_seed: Uint128 = Uint128 0
@@ -322,26 +322,23 @@ transition compound_yield()
   send msgs
 end
 
-procedure assignWinner(user_start_end: Pair ByStr20 (Pair Uint128 Uint128))
-    
-    match user_start_end with
-    | Pair user start_end =>
-      match start_end with
-      | Pair start_idx end_idx =>
+procedure assignWinner(user_end: Pair ByStr20 Uint128)
+    match user_endAmt with
+    | Pair user end_idx =>
+        start_idx <- range_start;
         random_seed_local <- random_seed;
         is_start = uint128_ge random_seed_local start_idx;
         is_end = uint128_gt end_idx random_seed_local;
-
+        range_start := end_idx;
         match is_start with
         | True =>
-        match is_end with
-        | True =>
-            lottery_winner := user
+            match is_end with
+            | True =>
+                lottery_winner := user
+            | False =>
+            end
         | False =>
         end
-        | False =>
-        end
-      end
     end
 end
 
@@ -351,8 +348,7 @@ procedure findUserRange(user_amount: Pair ByStr20 Uint128)
     | Pair user amount =>
       user_range_start <- range_start;
       user_range_end = builtin add user_range_start amount;
-      user_range = Pair {Uint128 Uint128} user_range_start user_range_end;
-      user_lottery_range[user] := user_range;
+      user_lottery_range[user] := user_range_end;
       range_start := user_range_end
     end
 end
@@ -386,6 +382,7 @@ transition lottery(rand_seed: Uint128)
     prize = builtin sub sum owner_cut;
     lottery_prize := prize;
 
+    range_start := zero;
     forall user_range_list assignWinner;
     round_number_local <- round_number;
     round_winner_local <- lottery_winner;
