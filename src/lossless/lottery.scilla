@@ -94,7 +94,7 @@ procedure IsOwner(initiator: ByStr20)
 end
 
 procedure assignWinner(user_end: Pair ByStr20 Uint128)
-    match user_endAmt with
+    match user_end with
     | Pair user end_idx =>
         start_idx <- range_start;
         random_seed_local <- random_seed;

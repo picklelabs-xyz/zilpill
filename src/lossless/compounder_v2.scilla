@@ -323,7 +323,7 @@ transition compound_yield()
 end
 
 procedure assignWinner(user_end: Pair ByStr20 Uint128)
-    match user_endAmt with
+    match user_end with
     | Pair user end_idx =>
         start_idx <- range_start;
         random_seed_local <- random_seed;
@@ -454,7 +454,7 @@ end
 procedure resetParams()
     emp_map = Emp ByStr20 Uint128;
     emp_map_uwd = Emp ByStr20 (Map BNum Uint128);
-    emp_map_ulr = Emp ByStr20 (Pair Uint128 Uint128);
+    emp_map_ulr = Emp ByStr20 Uint128;
     b_num_reset = Uint128 3500;
     backers_current_deposit := emp_map;
     backers_prev_deposit:= emp_map;
