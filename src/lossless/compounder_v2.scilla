@@ -17,6 +17,7 @@ type Error =
 | NotYieldContract
 | IncorrectPercentage
 | NoWinningAmount
+| NotTransferContract
 
 let make_error =
 fun (result : Error) =>
@@ -28,6 +29,7 @@ fun (result : Error) =>
     | NotYieldContract                  => Int32 -4
     | IncorrectPercentage => Int32 -5
     | NoWinningAmount => Int32 -6
+    | NotTransferContract => Int32 -7
     end
   in
   { _exception : "ContractError"; code : result_code }
@@ -58,6 +60,7 @@ field backers_p_interest: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field staking_contract: ByStr20 = 0x0f1a8a1b71826c9a8b16078244bd92d9660c697f
 field gzil_contract: ByStr20 = 0xf3ff53bacc824678b2833ea0edb82b01e8f570ed
 field ssn_addr: ByStr20 = 0xda97F61825773A649ca28351FC0D92B4f32d184D
+field ownership_tranfer_contract: ByStr20 = 0xda97F61825773A649ca28351FC0D92B4f32d184D
 field user_interests: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field user_lottery_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field current_yield: Uint128 = Uint128 0
@@ -455,7 +458,7 @@ procedure resetParams()
     emp_map = Emp ByStr20 Uint128;
     emp_map_uwd = Emp ByStr20 (Map BNum Uint128);
     emp_map_ulr = Emp ByStr20 Uint128;
-    b_num_reset = Uint128 3500;
+    b_num_reset = Uint128 12;
     backers_current_deposit := emp_map;
     backers_prev_deposit:= emp_map;
     backers_p_lottery:= emp_map;
