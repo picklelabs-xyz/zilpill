@@ -17,6 +17,7 @@ type Error =
 | NotYieldContract
 | IncorrectPercentage
 | NoWinningAmount
+| NotTransferContract
 
 let make_error =
 fun (result : Error) =>
@@ -28,6 +29,7 @@ fun (result : Error) =>
     | NotYieldContract                  => Int32 -4
     | IncorrectPercentage => Int32 -5
     | NoWinningAmount => Int32 -6
+    | NotTransferContract => Int32 -7
     end
   in
   { _exception : "ContractError"; code : result_code }
@@ -55,15 +57,16 @@ field backers_current_deposit : Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field backers_prev_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field backers_p_lottery: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field backers_p_interest: Map ByStr20 Uint128 = Emp ByStr20 Uint128
-field staking_contract: ByStr20 = 0x62a9d5d611cdcae8d78005f31635898330e06b93
-field ssn_addr: ByStr20 = 0x82b82c65213e0b2b206492d3d8a2a679e7fe52e0
+field staking_contract: ByStr20 = 0x0f1a8a1b71826c9a8b16078244bd92d9660c697f
+field gzil_contract: ByStr20 = 0xf3ff53bacc824678b2833ea0edb82b01e8f570ed
+field ssn_addr: ByStr20 = 0xda97F61825773A649ca28351FC0D92B4f32d184D
+field ownership_tranfer_contract: ByStr20 = 0xda97F61825773A649ca28351FC0D92B4f32d184D
 field user_interests: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field user_lottery_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field current_yield: Uint128 = Uint128 0
 field prev_balance: Uint128 = Uint128 0
 field total_restaking_amount: Uint128 = Uint128 0
 field total_sum: Uint128 = Uint128 0
-field round_number: Uint128 = Uint128 0
 field user_lottery_range: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field lottery_winner: ByStr20 = 0xfb7ba19013b3c1fc3c20da60d42fd3aca66f5195
 field lottery_prize: Uint128 = Uint128 0
@@ -71,8 +74,7 @@ field random_seed: Uint128 = Uint128 0
 field round_number: Uint128 = Uint128 0
 field range_start: Uint128 = Uint128 0
 field user_lotteryPrize: Map ByStr20 Uint128 = Emp ByStr20 Uint128
-field available_withdrawal: Map ByStr20 Uint128 = Emp ByStr20 Uint128
-field bnum_required: Uint128 = Uint128 3500
+field bnum_required: Uint128 = Uint128 12
 field matured_amount: Uint128 = Uint128 0
 field user_withdraw_dict: Map ByStr20 (Map BNum Uint128) = Emp ByStr20 (Map BNum Uint128)
 
@@ -92,6 +94,7 @@ procedure IsOwner(initiator: ByStr20)
         ThrowError err
     end
 end
+
 
 procedure assignWinner(user_end: Pair ByStr20 Uint128)
     match user_end with

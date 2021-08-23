@@ -6,17 +6,8 @@ library LosslessLottery
 
 let zero: Uint128 = Uint128 0
 let one: Uint128 = Uint128 1
-let two: Uint128 = Uint128 2
-let one_zil: Uint128 = Uint128 1000000000000
-let ten: Uint128 = Uint128 10
 let hundred: Uint128 = Uint128 100
 let successful_deposit_code: Int32 = Int32 -1
-
-let fund_withdraw_success_code: Int32 = Int32 -4
-let staking_contract_adress_update: Int32 = Int32 -5
-let owner_withdrawal: Int32 = Int32 -7
-(* let not_yield_contract_error: Int32 = Int32 -8 *)
-let yield_accepted: Int32 = Int32 -9
 let percentages_added: Int32 = Int32 -10
 
 type Error =
@@ -25,6 +16,8 @@ type Error =
 | NotOwner
 | NotYieldContract
 | IncorrectPercentage
+| NoWinningAmount
+| NotTransferContract
 
 let make_error =
 fun (result : Error) =>
@@ -35,11 +28,12 @@ fun (result : Error) =>
     | NotOwner                   => Int32 -3
     | NotYieldContract                  => Int32 -4
     | IncorrectPercentage => Int32 -5
+    | NoWinningAmount => Int32 -6
+    | NotTransferContract => Int32 -7
     end
   in
   { _exception : "ContractError"; code : result_code }
 
-  
 let get_user_amount = 
     fun (bs : Map ByStr20 Uint128) =>
     fun (sender : ByStr20) =>
@@ -54,8 +48,6 @@ let two_msgs =
     fun (msg2 : Message) =>
         let msgs_tmp = one_msg msg2 in
         Cons {Message} msg1 msgs_tmp
-        
-
 
 contract LosslessLottery(owner: ByStr20, 
                          owner_compound_percent: Uint128,
@@ -63,12 +55,28 @@ contract LosslessLottery(owner: ByStr20,
 
 field backers_current_deposit : Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field backers_prev_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
-field staking_contract: ByStr20 = 0x62a9d5d611cdcae8d78005f31635898330e06b93
-field user_withdraw_dict: Map ByStr20 (Map BNum Uint128) = Emp ByStr20 (Map BNum Uint128)
-field ssn_addr: ByStr20 = 0x82b82c65213e0b2b206492d3d8a2a679e7fe52e0
-field available_withdrawal: Map ByStr20 Uint128 = Emp ByStr20 Uint128
-field bnum_required: Uint128 = Uint128 3500
+field backers_p_lottery: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field backers_p_interest: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field staking_contract: ByStr20 = 0x0f1a8a1b71826c9a8b16078244bd92d9660c697f
+field gzil_contract: ByStr20 = 0xf3ff53bacc824678b2833ea0edb82b01e8f570ed
+field ssn_addr: ByStr20 = 0xda97F61825773A649ca28351FC0D92B4f32d184D
+field ownership_tranfer_contract: ByStr20 = 0xda97F61825773A649ca28351FC0D92B4f32d184D
+field user_interests: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field user_lottery_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field current_yield: Uint128 = Uint128 0
+field prev_balance: Uint128 = Uint128 0
+field total_restaking_amount: Uint128 = Uint128 0
+field total_sum: Uint128 = Uint128 0
+field user_lottery_range: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field lottery_winner: ByStr20 = 0xfb7ba19013b3c1fc3c20da60d42fd3aca66f5195
+field lottery_prize: Uint128 = Uint128 0
+field random_seed: Uint128 = Uint128 0
+field round_number: Uint128 = Uint128 0
+field range_start: Uint128 = Uint128 0
+field user_lotteryPrize: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field bnum_required: Uint128 = Uint128 12
 field matured_amount: Uint128 = Uint128 0
+field user_withdraw_dict: Map ByStr20 (Map BNum Uint128) = Emp ByStr20 (Map BNum Uint128)
 
 (* New variables below *)
 
@@ -87,35 +95,49 @@ procedure IsOwner(initiator: ByStr20)
     end
 end
 
+
 procedure findUserMaturedAmount(block_amount_pair: Pair BNum Uint128)
     current_blocknum <- & BLOCKNUMBER;
     b_req <- bnum_required;
     match block_amount_pair with
     |   Pair block amount =>
-        block_required = builtin badd b_req block;
+        block_required = builtin badd block b_req ;
         is_valid_block = builtin blt block_required current_blocknum;
-        match is_valid with
+        match is_valid_block with
         |   True =>
             matured_amount_curr <- matured_amount;
             new_matured_amount = builtin add matured_amount_curr amount;
             matured_amount := new_matured_amount;
-            delete pool_out[_sender][block]
+            delete user_withdraw_dict[_sender][block]
         |   False =>
         end
     end
 end
 
 transition CompleteWithdrawalNoUnbondedStakeCallBack(amount: Uint128)
-end
+end 
 
 transition CompleteWithdrawalSuccessCallBack(amount: Uint128)
 end
 
+transition WithdrawStakeAmtSuccessCallBack(ssnaddr: ByStr20, amount: Uint128)
+end
+
+transition fetchMaturedStake()
+    yield_contract <- staking_contract;
+    msg = {
+        _tag: "CompleteWithdrawal";
+        _amount: zero;
+        _recipient: yield_contract
+    };
+    msgs = one_msg msg;
+    send msgs
+end
+
 transition claimMaturedStake()
     current_blk <- & BLOCKNUMBER;
-    user_block_amount <- pool_out[_sender];
-    available_withdrawal := zero;
-    yield_contract <- staking_contract;
+    user_block_amount <- user_withdraw_dict[_sender];
+    
     match user_block_amount with
     |   None =>
         err = UserNotPresent;
@@ -126,17 +148,13 @@ transition claimMaturedStake()
         block_amount_listpair = builtin to_list user_block_amount;
         forall block_amount_listpair findUserMaturedAmount;
         user_matured_amount <- matured_amount;
-        msg = {
-            _tag: "CompleteWithdrawal";
-            _amount: zero;
-            _recipient: yield_contract;
-        }
+        
         msg2 = {
             _tag: " User Withdrawal ";
             _amount: user_matured_amount;
             _recipient: _sender
         };
-        msgs = two_msg msg msg2;
+        msgs = one_msg msg2;
         send msgs
     end
 end
@@ -176,7 +194,7 @@ procedure PoolOutAssist(amount: Uint128, total_staked_amount: Uint128, current_s
   end
 end
 
-procedure updateWithdrawalAmount(amt: Uint128, user_amount: Option {Uint128}, currentBlk: BNum)
+procedure updateWithdrawalAmount(amt: Uint128, user_amount: Option Uint128, currentBlk: BNum)
     withdraw_amt_pending = match user_amount with
     | Some v => builtin add v amt
     | None => amt
@@ -187,7 +205,7 @@ end
 transition PoolOut(amount: Uint128)
     current_staked_amount <- backers_prev_deposit[_sender];
     total_staked_amount <- backers_current_deposit[_sender];
-    current_blk = & BLOCKNUMBER;
+    current_blk <- & BLOCKNUMBER;
     match total_staked_amount with
     |   Some total_staked_amount =>
         match current_staked_amount with

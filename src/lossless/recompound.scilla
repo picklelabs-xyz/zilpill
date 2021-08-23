@@ -7,6 +7,8 @@ library LosslessLottery
 let zero: Uint128 = Uint128 0
 let one: Uint128 = Uint128 1
 let hundred: Uint128 = Uint128 100
+let successful_deposit_code: Int32 = Int32 -1
+let percentages_added: Int32 = Int32 -10
 
 type Error =
 | InsufficientBalance
@@ -14,6 +16,8 @@ type Error =
 | NotOwner
 | NotYieldContract
 | IncorrectPercentage
+| NoWinningAmount
+| NotTransferContract
 
 let make_error =
 fun (result : Error) =>
@@ -24,11 +28,12 @@ fun (result : Error) =>
     | NotOwner                   => Int32 -3
     | NotYieldContract                  => Int32 -4
     | IncorrectPercentage => Int32 -5
+    | NoWinningAmount => Int32 -6
+    | NotTransferContract => Int32 -7
     end
   in
   { _exception : "ContractError"; code : result_code }
 
-  
 let get_user_amount = 
     fun (bs : Map ByStr20 Uint128) =>
     fun (sender : ByStr20) =>
@@ -43,8 +48,6 @@ let two_msgs =
     fun (msg2 : Message) =>
         let msgs_tmp = one_msg msg2 in
         Cons {Message} msg1 msgs_tmp
-        
-
 
 contract LosslessLottery(owner: ByStr20, 
                          owner_compound_percent: Uint128,
@@ -54,16 +57,28 @@ field backers_current_deposit : Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field backers_prev_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field backers_p_lottery: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field backers_p_interest: Map ByStr20 Uint128 = Emp ByStr20 Uint128
-field staking_contract: ByStr20 = 0x62a9d5d611cdcae8d78005f31635898330e06b93
-field ssn_addr: ByStr20 = 0x82b82c65213e0b2b206492d3d8a2a679e7fe52e0
+field staking_contract: ByStr20 = 0x0f1a8a1b71826c9a8b16078244bd92d9660c697f
+field gzil_contract: ByStr20 = 0xf3ff53bacc824678b2833ea0edb82b01e8f570ed
+field ssn_addr: ByStr20 = 0xda97F61825773A649ca28351FC0D92B4f32d184D
+field ownership_tranfer_contract: ByStr20 = 0xda97F61825773A649ca28351FC0D92B4f32d184D
 field user_interests: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field user_lottery_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field current_yield: Uint128 = Uint128 0
 field prev_balance: Uint128 = Uint128 0
 field total_restaking_amount: Uint128 = Uint128 0
 field total_sum: Uint128 = Uint128 0
+field user_lottery_range: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field lottery_winner: ByStr20 = 0xfb7ba19013b3c1fc3c20da60d42fd3aca66f5195
+field lottery_prize: Uint128 = Uint128 0
+field random_seed: Uint128 = Uint128 0
 field round_number: Uint128 = Uint128 0
+field range_start: Uint128 = Uint128 0
+field user_lotteryPrize: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field bnum_required: Uint128 = Uint128 12
+field matured_amount: Uint128 = Uint128 0
+field user_withdraw_dict: Map ByStr20 (Map BNum Uint128) = Emp ByStr20 (Map BNum Uint128)
 
+(* New variables below *)
 
 procedure ThrowError(err : Error)
   e = make_error err;
@@ -80,7 +95,7 @@ procedure IsOwner(initiator: ByStr20)
     end
 end
 
-(* The below function received the yield from the smart contract *)
+
 transition AddFunds()
       accept
 end
@@ -204,13 +219,12 @@ end
 
 transition compound_yield()
   IsOwner _sender;
-  (* previous_balance <- prev_balance;
+  previous_balance <- prev_balance;
   current_balance <- _balance;
   contract_address <- staking_contract;
   
-  yield = builtin sub current_balance previous_balance; *)
-  (* current_yield := yield; *)
-  yield <- current_yield;
+  yield = builtin sub current_balance previous_balance;
+  current_yield := yield;
   owner_cut = builtin mul yield owner_compound_percent;
   owner_cut = builtin div owner_cut hundred;
 
@@ -227,4 +241,3 @@ transition compound_yield()
   msgs = one_msg msg;
   send msgs
 end
-

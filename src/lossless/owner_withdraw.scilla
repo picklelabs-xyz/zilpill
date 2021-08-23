@@ -6,17 +6,8 @@ library LosslessLottery
 
 let zero: Uint128 = Uint128 0
 let one: Uint128 = Uint128 1
-let two: Uint128 = Uint128 2
-let one_zil: Uint128 = Uint128 1000000000000
-let ten: Uint128 = Uint128 10
 let hundred: Uint128 = Uint128 100
 let successful_deposit_code: Int32 = Int32 -1
-
-let fund_withdraw_success_code: Int32 = Int32 -4
-let staking_contract_adress_update: Int32 = Int32 -5
-let owner_withdrawal: Int32 = Int32 -7
-(* let not_yield_contract_error: Int32 = Int32 -8 *)
-let yield_accepted: Int32 = Int32 -9
 let percentages_added: Int32 = Int32 -10
 
 type Error =
@@ -25,6 +16,8 @@ type Error =
 | NotOwner
 | NotYieldContract
 | IncorrectPercentage
+| NoWinningAmount
+| NotTransferContract
 
 let make_error =
 fun (result : Error) =>
@@ -35,11 +28,12 @@ fun (result : Error) =>
     | NotOwner                   => Int32 -3
     | NotYieldContract                  => Int32 -4
     | IncorrectPercentage => Int32 -5
+    | NoWinningAmount => Int32 -6
+    | NotTransferContract => Int32 -7
     end
   in
   { _exception : "ContractError"; code : result_code }
 
-  
 let get_user_amount = 
     fun (bs : Map ByStr20 Uint128) =>
     fun (sender : ByStr20) =>
@@ -54,8 +48,6 @@ let two_msgs =
     fun (msg2 : Message) =>
         let msgs_tmp = one_msg msg2 in
         Cons {Message} msg1 msgs_tmp
-        
-
 
 contract LosslessLottery(owner: ByStr20, 
                          owner_compound_percent: Uint128,
@@ -65,28 +57,28 @@ field backers_current_deposit : Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field backers_prev_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field backers_p_lottery: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field backers_p_interest: Map ByStr20 Uint128 = Emp ByStr20 Uint128
-field user_lottery_range: Map ByStr20 (Pair Uint128 Uint128) = Emp ByStr20 (Pair Uint128 Uint128)
-field staking_contract: ByStr20 = 0x62a9d5d611cdcae8d78005f31635898330e06b93
-field yield_contract: ByStr20 = 0x62a9d5d611cdcae8d78005f31635898330e06b93
-field gzil_contract: ByStr20 = 0xa845c1034cd077bd8d32be0447239c7e4be6cb21
-field ssn_addr: ByStr20 = 0x82b82c65213e0b2b206492d3d8a2a679e7fe52e0
-field staking_contract_stake_transition: String = "DelegateStake"
+field staking_contract: ByStr20 = 0x0f1a8a1b71826c9a8b16078244bd92d9660c697f
+field gzil_contract: ByStr20 = 0xf3ff53bacc824678b2833ea0edb82b01e8f570ed
+field ssn_addr: ByStr20 = 0xda97F61825773A649ca28351FC0D92B4f32d184D
+field ownership_tranfer_contract: ByStr20 = 0xda97F61825773A649ca28351FC0D92B4f32d184D
 field user_interests: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field user_lottery_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field current_yield: Uint128 = Uint128 0
 field prev_balance: Uint128 = Uint128 0
-field curr_balance: Uint128= Uint128 0
 field total_restaking_amount: Uint128 = Uint128 0
+field total_sum: Uint128 = Uint128 0
+field user_lottery_range: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field lottery_winner: ByStr20 = 0xfb7ba19013b3c1fc3c20da60d42fd3aca66f5195
 field lottery_prize: Uint128 = Uint128 0
 field random_seed: Uint128 = Uint128 0
-field cs_amount: Uint128 = Uint128 0
 field round_number: Uint128 = Uint128 0
-field first_val: Uint128 = Uint128 0
 field range_start: Uint128 = Uint128 0
+field user_lotteryPrize: Map ByStr20 Uint128 = Emp ByStr20 Uint128
+field bnum_required: Uint128 = Uint128 12
+field matured_amount: Uint128 = Uint128 0
+field user_withdraw_dict: Map ByStr20 (Map BNum Uint128) = Emp ByStr20 (Map BNum Uint128)
 
 (* New variables below *)
-field total_sum: Uint128 = Uint128 0
 
 procedure ThrowError(err : Error)
   e = make_error err;
@@ -102,6 +94,7 @@ procedure IsOwner(initiator: ByStr20)
         ThrowError err
     end
 end
+
 
 transition TransferSuccessCallBack(sender: ByStr20, recipient: ByStr20, amount: Uint128)
 end
@@ -125,20 +118,56 @@ procedure transferStakeOwnershipToOwner()
     _tag: "RequestDelegatorSwap";
     _recipient: staking_contract_local;
     _amount: zero;
-    new_deleg_addr: _sender;
+    new_deleg_addr: _sender
   };
   msgs = one_msg msg;
   send msgs
 end
 
 procedure resetParams()
-  
+    emp_map = Emp ByStr20 Uint128;
+    emp_map_uwd = Emp ByStr20 (Map BNum Uint128);
+    emp_map_ulr = Emp ByStr20 Uint128;
+    b_num_reset = Uint128 12;
+    backers_current_deposit := emp_map;
+    backers_prev_deposit:= emp_map;
+    backers_p_lottery:= emp_map;
+    backers_p_interest:= emp_map;
+    user_interests:= emp_map;
+    user_lottery_deposit:= emp_map;
+    current_yield:= zero;
+    prev_balance:= zero;
+    total_restaking_amount:= zero;
+    total_sum:= zero;
+    round_number:= zero;
+    user_lottery_range:= emp_map_ulr;
+    lottery_prize:= zero;
+    random_seed:= zero;
+    round_number:= zero;
+    range_start:= zero;
+    user_lotteryPrize:= emp_map;
+    bnum_required:= b_num_reset;
+    matured_amount:= zero;
+    user_withdraw_dict:= emp_map_uwd
 end
 
-transition ownerWithdraw()
+procedure ownerBalanceWithdraw()
+    amount <- _balance;
+
+    msg = {
+        _tag: "User";
+        _recipient: owner;
+        _amount: amount
+    };
+    msgs = one_msg msg;
+    send msgs
+end
+
+transition ownerWithdraw(gzil_amount: Uint128)
     IsOwner _sender;
     transferStakeOwnershipToOwner;
-    transferGzilToOwner;
-    resetParams;
+    ownerBalanceWithdraw;
+    transferGzilToOwner gzil_amount;
+    resetParams
 end
 
