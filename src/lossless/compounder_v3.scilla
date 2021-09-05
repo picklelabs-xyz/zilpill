@@ -50,17 +50,21 @@ let two_msgs =
         Cons {Message} msg1 msgs_tmp
 
 contract LosslessLottery(owner: ByStr20, 
-                         owner_compound_percent: Uint128,
-                         owner_lottery_percent: Uint128)
+            owner_compound_percent: Uint128,
+            owner_lottery_percent: Uint128,
+            gzil_cont: ByStr20,
+            staking_contract_proxy: ByStr20,
+            ssn_contract: ByStr20, 
+            transferContract: ByStr20)
 
 field backers_current_deposit : Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field backers_prev_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field backers_p_lottery: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field backers_p_interest: Map ByStr20 Uint128 = Emp ByStr20 Uint128
-field staking_contract: ByStr20 = 0x0f1a8a1b71826c9a8b16078244bd92d9660c697f
-field gzil_contract: ByStr20 = 0xf3ff53bacc824678b2833ea0edb82b01e8f570ed
-field ssn_addr: ByStr20 = 0xda97F61825773A649ca28351FC0D92B4f32d184D
-field ownership_tranfer_contract: ByStr20 = 0xda97F61825773A649ca28351FC0D92B4f32d184D
+field staking_contract: ByStr20 = staking_contract_proxy
+field gzil_contract: ByStr20 = gzil_cont
+field ssn_addr: ByStr20 = ssn_contract
+field ownership_tranfer_contract: ByStr20 = transferContract
 field user_interests: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field user_lottery_deposit: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field current_yield: Uint128 = Uint128 0
@@ -179,6 +183,11 @@ transition update_percentages(interest_percent: Uint128)
     end
 end
 
+transition updateTransferContract(new_transfer_contract: ByStr20)
+  ownership_tranfer_contract := new_transfer_contract
+end
+
+
 transition AddFunds()
       accept
 end
@@ -282,6 +291,9 @@ procedure calcUserYield(yields: Uint128)
     (* Calculate total amount deposited *)
     total_sum := zero;
     user_amounts <- backers_prev_deposit;
+    backers_current_deposit_local <- backers_current_deposit;
+    backers_prev_deposit := backers_current_deposit_local;
+    
     user_amount_listpair = builtin to_list user_amounts;
     forall user_amount_listpair findValueSum;
     (* Calculated total amount deposited in field total_sum *)
@@ -314,8 +326,7 @@ transition compound_yield()
   users_yield = builtin sub yield owner_cut;
   total_restaking_amount := zero;
   calcUserYield users_yield;
-  backers_current_deposit_local <- backers_current_deposit;
-  backers_prev_deposit := backers_current_deposit_local;
+  
   msg = {
           _recipient: owner;
           _amount: owner_cut;
@@ -458,7 +469,7 @@ procedure resetParams()
     emp_map = Emp ByStr20 Uint128;
     emp_map_uwd = Emp ByStr20 (Map BNum Uint128);
     emp_map_ulr = Emp ByStr20 Uint128;
-    b_num_reset = Uint128 3500;
+    b_num_reset = Uint128 12;
     backers_current_deposit := emp_map;
     backers_prev_deposit:= emp_map;
     backers_p_lottery:= emp_map;
@@ -630,100 +641,84 @@ transition PoolOut(amount: Uint128)
     end
 end
 
-procedure isTransferContract(transfer_contract: ByStr20)
-    staking_contract_curr <- ownership_tranfer_contract;
-    is_staking_contract = builtin eq staking_contract_curr transfer_contract;
-    match is_staking_contract with
-    |   True =>
-    |   False =>
+procedure isTransferContract(transferContract: ByStr20)
+(* statements go below *)
+    transferContractLocal <- ownership_tranfer_contract;
+    is_transfer_contract = builtin eq transferContractLocal transferContract;
+    match is_transfer_contract with
+    | True =>
+    | False =>
         err = NotTransferContract;
         ThrowError err
     end
 end
 
-transition updateOwnershipTransferContract(new_contract: ByStr20)
-    IsOwner _sender;
-    ownership_tranfer_contract := new_contract
-end
-
-procedure updateLotteryPercentage(user_percentage: Pair ByStr20 Uint128)
-    match user_percentage with
-    | Pair user percentage =>
-          backers_p_lottery[user] := percentage
-        
+procedure updatePrevDeposit(backer: ByStr20, deposit: Uint128)
+    current_deposit <- backers_prev_deposit[backer];
+    match current_deposit with
+    | Some amt =>
+    deposit = builtin add amt deposit;
+        backers_prev_deposit[backer] := deposit
+    | None =>
+        backers_prev_deposit[backer] := deposit
     end
 end
 
-procedure updateRecompoundingPercentage(user_percentage: Pair ByStr20 Uint128)
-    match user_percentage with
-    | Pair user percentage =>
-          backers_p_interest[user] := percentage
+procedure updateCurrentDeposit(backer: ByStr20, deposit: Uint128)
+    current_deposit <- backers_current_deposit[backer];
+    match current_deposit with
+    | Some amt =>
+        deposit = builtin add amt deposit;
+        backers_current_deposit[backer] := deposit
+    | None =>
+        backers_current_deposit[backer] := deposit
     end
 end
 
-procedure updatePrevDeposit(user_amount: Pair ByStr20 Uint128)
-    match user_amount with
-    | Pair user amt =>
-        prev_amount <- backers_prev_deposit[user];
-        match prev_amount with
-        | Some amount =>
-            new_amount = builtin add amount  amt;
-          backers_prev_deposit[user] := new_amount
-        | None =>
-          backers_prev_deposit[user] := amt
-        end
+procedure updateBackerDepositTransfer(backer_deposit: Pair ByStr20 Uint128)
+(* statements go below *)
+    match backer_deposit with 
+    | Pair backer deposit =>
+        updatePrevDeposit backer deposit;
+        updateCurrentDeposit backer deposit
     end
 end
 
-procedure updateCurrentDeposit(user_amount: Pair ByStr20 Uint128)
-    match user_amount with
-    | Pair user amt =>
-        current_amount <- backers_current_deposit[user];
-        match current_amount with
-        | Some amount =>
-            new_amount = builtin add amount  amt;
-            backers_current_deposit[user] := new_amount
-        | None =>
-            backers_current_deposit[user] := amt
-        end
+procedure updatePercentagesTransfer(user_percent: Pair ByStr20 Uint128)
+    match user_percent with
+    | Pair user percent =>
+        lottery_percent = builtin sub hundred percent;
+        backers_p_lottery[_sender] := lottery_percent;
+        backers_p_interest[_sender] := percent
     end
 end
 
-
-transition confirmOwnershipTransfer(transfer_contract : ByStr20 with contract
-    field backers_p_lottery: Map ByStr20 Uint128,
-    field backers_p_interest: Map ByStr20 Uint128,
-    field backers_deposit: Map ByStr20 Uint128
+transition confirmStakeTransfer(transferContract : ByStr20 with contract
+    field backers_deposit: Map ByStr20 Uint128,
+    field backers_p_lottery: Map ByStr20 Uint128
     end)
     IsOwner _sender;
-    isTransferContract transfer_contract;
-    
-    transfer_contract_backers_p_lottery <- & transfer_contract.backers_p_lottery;
-    transfer_contract_backers_p_interest <- & transfer_contract.backers_p_interest;
-    transfer_contract_backers_deposit <- & transfer_contract.backers_deposit;
+    isTransferContract transferContract;
 
-    transfer_contract_backers_p_lottery = builtin to_list transfer_contract_backers_p_lottery;
-    transfer_contract_backers_p_interest = builtin to_list transfer_contract_backers_p_interest;
+    backers_deposit <- & transferContract.backers_deposit;
+    backers_deposit = builtin to_list backers_deposit;
+    backers_p_lottery_transferContract <- & transferContract.backers_p_lottery;
+    backers_p_lottery_transferContract = builtin to_list backers_p_lottery_transferContract;
+    forall backers_deposit updateBackerDepositTransfer;
+    forall backers_p_lottery_transferContract updatePercentagesTransfer;
 
-    forall transfer_contract_backers_p_lottery updateLotteryPercentage;
-    forall transfer_contract_backers_p_interest updateRecompoundingPercentage;
-
-
-    staking_contract_local <- staking_contract;
-    ownership_tranfer_contract_local <- ownership_tranfer_contract;
+    staking_contract_proxy_local <- staking_contract;
     msg1 = {
-        _tag: "ConfirmDelegatorSwap";
+        _recipient: staking_contract_proxy_local;
         _amount: zero;
-        _recipient: staking_contract_local;
-        requestor: ownership_tranfer_contract_local
+        _tag: "ConfirmDelegatorSwap";
+        requestor: transferContract
     };
     msg2 = {
-        _tag: "confirmStakeTransfer";
+        _recipient: transferContract;
         _amount: zero;
-        _recipient: ownership_tranfer_contract_local
+        _tag: "confirmStakeTransferSuccessCallback"
     };
     msgs = two_msgs msg1 msg2;
     send msgs
 end
-
-

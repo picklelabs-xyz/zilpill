@@ -199,6 +199,9 @@ procedure calcUserYield(yields: Uint128)
     (* Calculate total amount deposited *)
     total_sum := zero;
     user_amounts <- backers_prev_deposit;
+    backers_current_deposit_local <- backers_current_deposit;
+    backers_prev_deposit := backers_current_deposit_local;
+    
     user_amount_listpair = builtin to_list user_amounts;
     forall user_amount_listpair findValueSum;
     (* Calculated total amount deposited in field total_sum *)
@@ -231,8 +234,7 @@ transition compound_yield()
   users_yield = builtin sub yield owner_cut;
   total_restaking_amount := zero;
   calcUserYield users_yield;
-  backers_current_deposit_local <- backers_current_deposit;
-  backers_prev_deposit := backers_current_deposit_local;
+  
   msg = {
           _recipient: owner;
           _amount: owner_cut;
