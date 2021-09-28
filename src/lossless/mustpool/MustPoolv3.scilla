@@ -9,6 +9,7 @@ let one: Uint128 = Uint128 1
 let hundred: Uint128 = Uint128 100
 let successfulDepositCode: Int32 = Int32 -1
 let percentagesAdded: Int32 = Int32 -10
+let min_staking_amount: Uint128 = Uint128 10000000000000
 
 type Error =
 | InsufficientBalance
@@ -18,6 +19,7 @@ type Error =
 | IncorrectPercentage
 | NoWinningAmount
 | NotTransferContract
+| MinStakeError
 
 let make_error =
 fun (result : Error) =>
@@ -30,6 +32,7 @@ fun (result : Error) =>
     | IncorrectPercentage => Int32 -5
     | NoWinningAmount => Int32 -6
     | NotTransferContract => Int32 -7
+    |  MinStakeError=> Int32 -8
     end
   in
   { _exception : "ContractError"; code : result_code }
@@ -83,6 +86,7 @@ field user_lotteryPrize: Map ByStr20 Uint128 = Emp ByStr20 Uint128
 field bnum_required: Uint128 = Uint128 80
 field matured_amount: Uint128 = Uint128 0
 field user_withdraw_dict: Map ByStr20 (Map BNum Uint128) = Emp ByStr20 (Map BNum Uint128)
+field min_staking_amount:Uint128 = Uint128 10
 
 
 procedure ThrowError(err : Error)
@@ -134,29 +138,43 @@ procedure checkValidPercentage(restakePercent: Uint128)
     end
 end
 
+procedure IsMinStakingAmount(min_staking_amount:Uint128, amount:Uint128)
+    is_smaller= builtin lt amount min_staking_amount;
+    match is_smaller with
+    | True=>
+        err= MinStakeError;
+        ThrowError err
+    | False=>
+    end
+end
+
+
 transition PoolIn(restake_percent: Uint128)
     checkValidPercentage restake_percent;
-    userBalance <- backers_current_deposit[_sender];
-    stakingContractAddress <- staking_contract_proxy;
-    currentSsnAddr <- ssn_addr;
+    user_balance <- backers_current_deposit[_sender];
+    staking_contract_address <- staking_contract_proxy;
+    current_ssn_addr <- ssn_addr;
+   
+    IsMinStakingAmount min_staking_amount _amount;
+    
     accept;
     msg_stake = {
         _tag: "DelegateStake";
-        _recipient: stakingContractAddress;
+        _recipient: staking_contract_address;
         _amount: _amount;
-        ssnaddr: currentSsnAddr
+        ssnaddr: current_ssn_addr
     };
     msgs = oneMsg msg_stake;
     send msgs;
-
-    match userBalance with
+  
+    match user_balance with
     | None =>
         backers_current_deposit[_sender] := _amount;
         updatePercentages restake_percent
 
-    | Some senderAmt =>
-        newSenderAmt = builtin add senderAmt _amount;
-        backers_current_deposit[_sender] := newSenderAmt;
+    | Some sender_amt =>
+        new_sender_amt = builtin add sender_amt _amount;
+        backers_current_deposit[_sender] := new_sender_amt;
         updatePercentages restake_percent
     end
 end
@@ -288,6 +306,8 @@ procedure distributeYield(address_value: Pair ByStr20 Uint128)
     end
 end
 
+
+
 procedure calcUserYield(yields: Uint128)
 (* statements go below *)
 
@@ -304,16 +324,22 @@ procedure calcUserYield(yields: Uint128)
     forall user_amount_listpair distributeYield;
 
     restaking_amount <- total_restaking_amount;
+    min_staking_amount_local<- min_staking_amount;
     staking_contract_address <- staking_contract_proxy;
     current_ssn_addr <- ssn_addr;
-    msg_stake = {
+    is_min_staking_amount= builtin lt restaking_amount min_staking_amount_local;
+    match is_min_staking_amount with 
+      |True=>
+      |False=>
+         msg_stake = {
         _tag: "DelegateStake";
         _recipient: staking_contract_address;
         _amount: restaking_amount;
         ssnaddr: current_ssn_addr
-    };
-    msgs = oneMsg msg_stake;
-    send msgs
+        };
+        msgs = oneMsg msg_stake;
+        send msgs
+      end
 end
 
 transition CompoundYield()
@@ -506,7 +532,7 @@ procedure ownerBalanceWithdraw()
     send msgs
 end
 
-transition ownerWithdraw(gzil_amount: Uint128)
+transition OwnerWithdraw(gzil_amount: Uint128)
     IsOwner _sender;
     transferStakeOwnershipToOwner;
     ownerBalanceWithdraw;
@@ -541,7 +567,7 @@ end
 transition WithdrawStakeAmtSuccessCallBack(ssnaddr: ByStr20, amount: Uint128)
 end
 
-transition fetchMaturedStake()
+transition FetchMaturedStake()
     yield_contract <- staking_contract_proxy;
     msg = {
         _tag: "CompleteWithdrawal";
@@ -552,7 +578,7 @@ transition fetchMaturedStake()
     send msgs
 end
 
-transition claimMaturedStake()
+transition ClaimMaturedStake()
     current_blk <- & BLOCKNUMBER;
     user_block_amount <- user_withdraw_dict[_sender];
     
@@ -695,7 +721,7 @@ procedure updatePercentagesTransfer(user_percent: Pair ByStr20 Uint128)
     end
 end
 
-transition confirmStakeTransfer(transferContract : ByStr20 with contract
+transition ConfirmStakeTransfer(transferContract : ByStr20 with contract
     field backers_deposit: Map ByStr20 Uint128,
     field backers_p_lottery: Map ByStr20 Uint128
     end)
