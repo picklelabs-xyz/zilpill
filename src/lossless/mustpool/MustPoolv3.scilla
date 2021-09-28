@@ -316,7 +316,7 @@ procedure calcUserYield(yields: Uint128)
     send msgs
 end
 
-transition compoundYield()
+transition CompoundYield()
   IsOwner _sender;
   previousBalance <- prev_balance;
   currentBalance <- _balance;
@@ -381,7 +381,7 @@ procedure updateWinnerPrize(winner: ByStr20, prize: Uint128)
     end
 end
 
-transition lottery(rand_seed: Uint128)
+transition Lottery(rand_seed: Uint128)
     IsOwner _sender;
     user_lottery_contribution  <- user_lottery_deposit;
     user_lotteryDeposit_listpair = builtin to_list user_lottery_contribution;
